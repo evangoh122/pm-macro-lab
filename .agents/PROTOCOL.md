@@ -98,8 +98,9 @@ CODEX FINAL | verdict: APPROVED | sha: <SHA>
 <additional evidence lines>
 === VERDICT END ===
 ```
-The dispatcher captures this block from the log and persists it as the verdict
-file. Stdin is closed with `< /dev/null` to prevent stdin blocking.
+The coordinator extracts the block between the sentinel lines from the Codex log
+(`.agents/.agentlogs/codex-<request>.log`) and writes it as the verdict file.
+Stdin is closed with `< /dev/null` to prevent stdin blocking.
 
 **Opus 5.5 fallback:** Used as the final gate only if Codex Sol hits token/usage
 limits (rate-limit, quota, or usage error). This is a separate Claude route, not
@@ -152,9 +153,10 @@ Codex Sol final gate (gpt-6.1-sol)
 
 PR + CodeRabbit
    → Keep PR in draft until final gate (Codex Sol or Opus 5.5) approves
-   → Once final gate approves, trigger CodeRabbit review only if its automatic
-     review did not run (at most once per head SHA, never in a retry loop;
-     max 2 CodeRabbit reviews per PR without explicit owner approval)
+   → Once final gate approves, trigger `@coderabbitai review` once per head SHA
+     if new commits were pushed since CodeRabbit's last review (compare head SHA
+     with last review commit_id) or no automatic review ran; at most once per head
+     SHA, never in a loop; max 2 per PR without owner approval (see standing rule)
    → Merge only when owner says so explicitly
 ```
 
