@@ -78,6 +78,20 @@ The coder and validator are **MiMo and DeepSeek**, chosen by UTC peak hours:
 **TODO (owner):** Define the DeepSeek UTC peak hour window and verify it in
 `.agents/pick-roles.sh`, or describe the window here if a script is unavailable.
 
+## Model configuration
+
+Dispatch uses environment variable overrides for agent models (set in `.agents/dispatch.sh`):
+
+| Model | Default | Override |
+|:---|:---|:---|
+| **DeepSeek coder** | `deepseek/deepseek-flash` | `DEEPSEEK_MODEL=deepseek/deepseek-v4-pro` (for validator) |
+| **MiMo** | `xiaomi-token-plan-sgp/mimo-v2.6-pro` | `MIMO_MODEL=<custom-model>` |
+| **Codex Sol final gate** | `gpt-6.1-sol` | `CODEX_MODEL=<custom-model>` |
+
+**Opus 5.5 fallback:** Used as the final gate only if Codex Sol hits token/usage
+limits (rate-limit, quota, or usage error). This is a separate Claude route, not
+a dispatch.sh override. Substitution must be recorded in the PR.
+
 ## Validator fallback order
 
 If the designated validator runs out of tokens or quota, use fallback validators

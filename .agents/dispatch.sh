@@ -11,6 +11,8 @@
 #   DEEPSEEK_MODEL (default: deepseek/deepseek-flash for coder; set to
 #                   deepseek/deepseek-v4-pro for validator)
 #   MIMO_MODEL     (default: xiaomi-token-plan-sgp/mimo-v2.6-pro)
+#   CODEX_MODEL    (default: gpt-6.1-sol for final gate; Opus 5.5 fallback is
+#                   a separate Claude route, used only if Sol hits usage limits)
 
 set -uo pipefail
 
@@ -42,6 +44,7 @@ When finished, write your verdict file exactly as PROTOCOL.md specifies."
 
 DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek/deepseek-flash}"
 MIMO_MODEL="${MIMO_MODEL:-xiaomi-token-plan-sgp/mimo-v2.6-pro}"
+CODEX_MODEL="${CODEX_MODEL:-gpt-6.1-sol}"
 
 echo "[dispatch] agent=$AGENT request=$REQUEST timeout=${TIMEOUT}s log=$LOG"
 
@@ -55,7 +58,8 @@ case "$AGENT" in
       --title "pm-macro-lab-$(basename "$REQUEST" .md)" "$PROMPT" 2>&1 | tee "$LOG"
     ;;
   codex)
-    timeout "$TIMEOUT" codex exec --full-auto "$PROMPT" 2>&1 | tee "$LOG"
+    timeout "$TIMEOUT" codex exec -m "$CODEX_MODEL" --sandbox read-only \
+      "$PROMPT" 2>&1 | tee "$LOG" < /dev/null
     ;;
   *)
     echo "unknown agent: $AGENT (expected deepseek|mimo|codex)" >&2; exit 2 ;;
