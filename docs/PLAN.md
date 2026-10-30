@@ -1,6 +1,6 @@
 # pm-macro-lab: project plan
 
-Status: draft v2 (2026-10-30). Produced from a two-model discussion (Claude Opus and GPT Sol), two research rounds and one debate round, then amended by the owner's decisions below. Items marked **UNVERIFIED** were not confirmed from a primary source and must be checked in P0.
+Status: draft v3 (2026-10-30). Produced from a two-model discussion (Claude Opus and GPT Sol), two research rounds and one debate round, then amended by the owner's decisions below. Items marked **UNVERIFIED** were not confirmed from a primary source and must be checked in P0.
 
 ## 1. Thesis
 
@@ -106,6 +106,32 @@ Mechanics: ForecastEx does not allow selling, so "short" means buying the NO con
 
 Expected power: roughly 10 post-cutoff events so far and about 32 a year (12 CPI, 12 payrolls, 8 FOMC). The confirmatory H2 test is a 12-18 month collection horizon, not a guaranteed conclusion.
 
+## 7b. Sentiment workstream: Fed speech repricing experiment
+
+Both models agree sentiment runs **alongside** the ladder analyses, not instead of them. Key constraint: each contract stops trading at its own release (CPI and payrolls about 07:30 CT, FOMC about 13:00 CT), so a statement, BLS release or press conference can never predict its own contract. Text feeds the *next* event. Useful text arrives between events: speeches until the blackout (second Saturday before a meeting), minutes about three weeks after a meeting, Beige Book about two weeks before one.
+
+**Sources.** Core: federalreserve.gov statements, minutes, Beige Book (exact release times), Board speeches and testimony (date reliable; time of day often only the scheduled time). Next-meeting only: press-conference transcripts (do not timestamp at conference start unless the real publication time is verified). Control: SEP/dot plot as a number. Phase 2: regional Fed speeches and district Beige Book text. Outcome only: BLS CPI/payroll text (labels and surprise, never a feature for the same event). Defer: GDELT (15-minute cadence is not a publication guarantee; use only as an attention control later). Skip: X, Reddit, full-text wires, earnings calls, Google Trends. Store `published_ts`, first-observed `available_ts`, `ingest_ts`, URL, content hash and version per document. Unverified intraday availability: set `available_ts` to end of day (primary rule) and exclude the document from intraday tests.
+
+**Extraction (strict JSON schema, evidence spans, "not stated" option).** Never ask the LLM for a forecast probability. Compute diffs deterministically (`difflib`) against the previous document of the same type and the same speaker's previous speech; the LLM classifies each changed span for direction (-2..+2) and topic. Levels are not used (Fed tone is persistent). Speech features: `near_term_policy`, `hawk_delta_vs_own_prior`, uncertainty, speaker weight (Chair/Vice Chair 3, governor 2, voting president 1.5, non-voter 1). Minutes: quantifier counts ("many", "several") on the rate path. Dissents come straight from the statement. Novelty: embedding distance from the previous five documents. Beige Book price and labor sections feed CPI and payroll contexts later. A hand-labeled blinded sample and a dictionary/phrase-diff baseline validate the LLM; a fluent explanation is not validation.
+
+**Targets.** Primary (Target B, repricing): change in the implied next-meeting expected rate (one predefined near-the-money FF threshold rule, not the best-performing strike) from the last trade before a document's `available_ts` to the volume-weighted price over the following 24 hours, from the pairs CSV, with a minimum trade count. Secondary (Target A, outcome): market-implied distribution at decision time (FOMC: blackout start; CPI/payrolls: T-1d) with `logit(p') = logit(p) + beta * s`, one beta per indicator shared across strikes. Outcome log loss is tested separately from price moves.
+
+**Baselines to beat.** Recalibrated market alone; then market + nowcast residual (analysis #2) + rates-path residual (analysis #3). Orthogonalise each text score against the change in nowcast and in DGS2 since the previous document; store raw and residual scores in `gold.text_features_pit` keyed `(event_id, as_of_ts)`.
+
+**First experiment (Track E, historical, about 4 weeks): "Fed speech -> ForecastEx repricing".**
+- Corpus: Board speeches, statements, minutes, Beige Books, Aug 2024 to Jun 2026, scored by pinned Llama-3.1-70B (`hawk_delta_vs_own_prior`, `near_term_policy`, `novelty`).
+- Model A: next-meeting implied-rate change over 24h ~ same-day change in DGS2. Model B: Model A + speech score x `near_term_policy`.
+- Primary statistic: partial correlation of the score with repricing, permutation p-value, block bootstrap by event. Placebo: shifting scores by one meeting must kill the effect. Sanity: hawkish sign must raise the implied rate.
+- Limits: the pairs CSV gives trade prints, not quotes. This is a "did the price move" study, not a "was it tradable" study. The decision time for any paper simulation (later) is the first valid captured quote after scoring, within a preregistered quote-age limit.
+- **Null result:** the 95% interval for the partial correlation contains 0 and is narrower than +/-0.15. Interpretation: Fed-speak is priced in by the next trade or uninformative. Then drop text-as-prediction for FOMC, keep text only as an event clock for analyses #1 and #3, and do not spend 18 months collecting for H2. A wide interval is inconclusive, not proof of no edge.
+- **If positive:** pre-register exactly this specification for Track C (`claude-opus-5-5`) on events after 2026-07-31 and keep the prospective crawler running.
+
+**Power (disagreement flagged).** Detectable standardised effect is about 2.8/sqrt(n) (80% power, alpha 0.05): 8 FOMC events about 1.0; 32 events about 0.5; about 70 events (Track E history) about 0.33. Opus estimates several hundred speeches would detect d of about 0.15-0.2; Sol notes this is unmeasured. **The speech count and variance are unverified: estimate power by simulation in P1 before committing to the experiment.**
+
+**Prior.** Likely adds nothing: CPI YoY (base effect, nowcast and gasoline dominate), payrolls, FOMC meetings already priced above 90%. Possible value: slow ForecastEx repricing after speeches and minutes, FF meetings 2-3 meetings out, meetings priced 20-80%. Thin CPI strikes are a staleness problem (analysis #1), not a sentiment problem.
+
+**Testing rules.** One pre-registered primary hypothesis per track; everything else exploratory with Benjamini-Hochberg correction; pool indicators only in a separately preregistered hierarchical analysis.
+
 ## 8. Backtest and evaluation rules
 
 - Market-only calibrated baseline first (Brier, log loss, reliability), then the incremental out-of-sample effect.
@@ -121,7 +147,7 @@ Expected power: roughly 10 post-cutoff events so far and about 32 a year (12 CPI
 
 Catalog `pm_macro`, schemas `bronze`, `silver`, `gold`, `ml`. Polars transforms, Spark I/O at the edges. Every row carries `data_source`, `ingest_ts`; bronze adds `payload_hash`, `schema_ver`.
 
-**Bronze (append-only, idempotent):** `forecastex_prices_raw`, `forecastex_pairs_raw`, `forecastex_summary_raw` (serverless job, no device needed); `ibkr_contracts_raw`, `ibkr_quotes_raw` (from the device); `fred_obs_raw`, `alfred_vintages_raw`, `release_calendar_raw`, `nowcast_raw`, `fed_docs_raw`, `gdelt_raw`.
+**Bronze (append-only, idempotent):** `forecastex_prices_raw`, `forecastex_pairs_raw`, `forecastex_summary_raw` (serverless job, no device needed); `ibkr_contracts_raw`, `ibkr_quotes_raw` (from the device); `fred_obs_raw`, `alfred_vintages_raw`, `release_calendar_raw`, `nowcast_raw`, `fed_docs_raw` (with first-seen `available_ts`), `gdelt_raw`.
 
 **Silver:** `contracts` (SCD2 on rules), `quotes` (YES and NO legs, bid/ask, size, field semantics, stale flag), `trades`, `macro_events`, `event_contract_map`, `first_prints`, `vintages`, `text_docs` (pub_ts, available_ts, ingest_ts), `text_scores` (model_id, model_cutoff, prompt_ver, confirmatory flag).
 
@@ -135,10 +161,10 @@ Catalog `pm_macro`, schemas `bronze`, `silver`, `gold`, `ml`. Polars transforms,
 
 | Phase | Weeks | Work | Gate |
 |---|---|---|---|
-| P0 | 1 | Repo, bundle, catalog, secret scope, CI. IBKR checks: eligibility, live quotes, paper orders, `reqHistoricalData`, fee convention. ForecastEx CSV audit (schemas, coverage, terms). Start both-leg quote capture. | CSV audit documented; 72h capture with no gaps; IBKR gates passed or fallback chosen |
+| P0 | 1 | Repo, bundle, catalog, secret scope, CI. IBKR checks: eligibility, live quotes, paper orders, `reqHistoricalData`, fee convention. ForecastEx CSV audit (schemas, coverage, terms). Start both-leg quote capture. **Start the Fed speech/first-seen crawler (federalreserve.gov RSS/pages, store `available_ts` on first observation).** | CSV audit documented; 72h capture with no gaps; IBKR gates passed or fallback chosen |
 | P1 | 1-3 | CPI YoY pipeline: contracts, ALFRED CPIAUCNS, first prints, calendar, base-effect + nowcast inputs. FOMC data from CSVs. Analysis #1 (ladder scan) on history. | First-print labels match contract resolutions 100%; liquidity measured per strike |
 | P2 | 3-6 | FOMC calibration (H1), analysis #3 (Fed-path RV), CPI analysis #2, market-only baselines. Select Track C model on a labeled sample. | Leakage suite passes; baseline report merged |
-| P3 | 6-9 | Track E scoring over history, pre-registration, bridge test, Track C prospective scoring begins | Pre-registration committed; or null result written up |
+| P3 | 6-9 | **Fed speech repricing experiment (section 7b)** on Track E; power simulation first; pre-registration, bridge test, Track C prospective scoring begins only if the result is positive | Pre-registration committed; or null result written up |
 | P4 | 9-14+ | Payrolls; remaining analyses (#4-#7); paper trading against captured books, minimum 6 weeks. Cross-asset hedge only if free timestamped data and paper access are confirmed. | Live capital requires a separate owner decision |
 
 ## 11. Repo layout
@@ -152,7 +178,7 @@ src/pm_macro/
   ingest/{forecastex_csv,ibkr_capture,fred_alfred,fed_text,gdelt,calendar}.py
   bronze/ silver/ gold/
   features/pit.py   labels/first_print.py
-  analysis/{ladder_arb,fed_path_rv,cpi_base_effect}.py
+  analysis/{ladder_arb,fed_path_rv,cpi_base_effect,speech_repricing}.py
   llm/{score,cache,cutoff_guard}.py
   models/{calibration,nowcast,combined}.py
   backtest/{replay,fills,sizing,metrics}.py
