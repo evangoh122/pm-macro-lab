@@ -71,9 +71,12 @@ OPUS FINAL | verdict: <APPROVED|CHANGES_REQUESTED|FAILED> | sha: <SHA>
 ## CI parity gate
 
 Before approval, all required checks must pass:
-- `ruff check .`
-- `mypy src`
-- `pytest -m "not spark and not databricks and not live"`
+
+```
+ruff check .
+mypy src
+pytest -m "not spark and not databricks and not live"
+```
 
 ## Lifecycle
 
@@ -94,22 +97,27 @@ Codex Sol final gate (gpt-6.1-sol)
    → Writes CODEX FINAL | verdict: APPROVED | sha: <SHA>
 
 PR + CodeRabbit
-   → Keep PR draft until final gate approves
-   → Once approved, trigger CodeRabbit review (if needed)
+   → Keep PR in draft until final gate (Codex Sol or Opus 5.5) approves
+   → Once final gate approves, trigger CodeRabbit review only if its automatic
+     review did not run (at most once per head SHA, never in a retry loop;
+     max 2 CodeRabbit reviews per PR without explicit owner approval)
    → Merge only when owner says so explicitly
 ```
 
 ## Hard rules
 
-- No coder or validator pushes to `main` or `master`. dispatch.sh enforces this.
-- Validator must be independent: different model from coder, or different agent.
+- No coder or validator pushes to `main` or `master`. dispatch.sh refuses to
+  start a dispatch from those branches; push protection comes from GitHub branch
+  protection rules, not from this script.
+- Validator must be independent: a different model from the coder's model.
 - Validator verdict must be for exact commit SHA; later commits require new validation.
 - Final gate must be Codex Sol (`gpt-6.1-sol`) for every change. Only use Opus 5.5 if
   Sol hits token/usage limits, and record that substitution in the PR.
 - No secrets in committed files. Config via env var or secure secrets store only.
 - No parameterized SQL violations. A single f-string interpolation is a blocker.
 - A builder may not approve its own work as the sole verdict.
-- CI parity gate must pass: `ruff check .`, `mypy src`, `pytest -m "not spark and not databricks and not live"`.
+- CI parity gate must pass all checks: `ruff check .`, `mypy src`,
+  `pytest -m "not spark and not databricks and not live"`.
 - Tests must actually run. A verdict claiming "tests pass" without pasted output is blocking.
 - Terminal reports (BUILD DONE, VALIDATION DONE, CODEX FINAL/OPUS FINAL) are required.
 - Timeouts are passed at dispatch call site, not hardcoded: `.agents/dispatch.sh <agent> <request> [7200]`.

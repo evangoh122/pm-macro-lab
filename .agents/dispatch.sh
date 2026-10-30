@@ -53,8 +53,10 @@ case "$AGENT" in
     echo "unknown agent: $AGENT (expected deepseek|mimo|codex)" >&2; exit 2 ;;
 esac
 
-AGENT_RC=${PIPESTATUS[0]}
-TEE_RC=${PIPESTATUS[1]}
-RC=$((AGENT_RC | TEE_RC))
+RCS=("${PIPESTATUS[@]}")
+AGENT_RC=${RCS[0]}
+TEE_RC=${RCS[1]}
+RC=$AGENT_RC
+[ "$TEE_RC" -eq 0 ] || RC=$((RC | TEE_RC))
 echo "[dispatch] agent=$AGENT agent_rc=$AGENT_RC tee_rc=$TEE_RC exit=$RC"
 exit "$RC"
