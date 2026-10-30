@@ -9,11 +9,17 @@ T = lambda m, d: datetime(2026, m, d, tzinfo=UTC)
 
 
 def base(**kw):
-    args: dict = dict(  # noqa: C408
-        registry=REG, pinned_model_id="m", model_id="m",
-        doc_available_ts=T(9, 1), event_release_ts=T(9, 16), score_ts=T(9, 10),
-        prompt_hash="h", preregistered_hashes={"h"},
-        prompt_registered_before_event=True, external_retrieval=False,
+    args: dict = dict(
+        registry=REG,
+        pinned_model_id="m",
+        model_id="m",
+        doc_available_ts=T(9, 1),
+        event_release_ts=T(9, 16),
+        score_ts=T(9, 10),
+        prompt_hash="h",
+        preregistered_hashes={"h"},
+        prompt_registered_before_event=True,
+        external_retrieval=False,
     )
     args.update(kw)
     return args
@@ -55,7 +61,7 @@ def test_missing_timestamp_fails_closed():
 
 def test_naive_timestamp_raises():
     with pytest.raises(CutoffGuardError):
-        is_confirmatory(**base(doc_available_ts=datetime(2026, 9, 1)))  # noqa: DTZ001
+        is_confirmatory(**base(doc_available_ts=datetime(2026, 9, 1)))
 
 
 def test_external_retrieval_rejected():
