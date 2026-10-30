@@ -61,7 +61,7 @@ def test_missing_timestamp_fails_closed():
 
 def test_naive_timestamp_raises():
     with pytest.raises(CutoffGuardError):
-        is_confirmatory(**base(doc_available_ts=datetime(2026, 9, 1)))
+        is_confirmatory(**base(doc_available_ts=datetime(2026, 9, 1)))  # noqa: DTZ001
 
 
 def test_external_retrieval_rejected():
