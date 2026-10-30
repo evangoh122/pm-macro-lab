@@ -75,8 +75,26 @@ The coder and validator are **MiMo and DeepSeek**, chosen by UTC peak hours:
 - **Outside DeepSeek peak hours:** DeepSeek codes, MiMo validates
 - **Fix rounds:** keep the original coder/validator pair
 
-**TODO (owner):** Define the DeepSeek UTC peak hour window and verify it in
-`.agents/pick-roles.sh`, or describe the window here if a script is unavailable.
+Read the pair from `.agents/pick-roles.sh` at the start of every round:
+
+```
+.agents/pick-roles.sh              # CODER=<mimo|deepseek>, VALIDATOR=<...>
+.agents/pick-roles.sh --keep mimo deepseek   # fix round: echo the original pair
+```
+
+The DeepSeek peak window is **not hardcoded in the repo**. The owner supplies it
+via two environment variables, both UTC hours `0-23`:
+
+| Variable | Meaning |
+|:---|:---|
+| `PEAK_START_UTC` | first peak hour (inclusive) |
+| `PEAK_END_UTC` | first non-peak hour (exclusive); may wrap midnight, e.g. `22` → `6` |
+
+The window is half-open `[PEAK_START_UTC, PEAK_END_UTC)`. If either variable is
+unset, non-numeric, out of range, or both are equal, the script exits **2**
+without printing a pair — fail closed, never guess a window. `NOW_UTC_HOUR`
+overrides the clock for tests only. A missing window is a blocker: stop and ask
+the owner rather than assuming a default.
 
 ## Model configuration
 
@@ -163,7 +181,9 @@ PR + CodeRabbit
 ## CodeRabbit re-review rule (standing)
 
 **After validator and final gate both approve,** trigger CodeRabbit review once
-per new head SHA if its automatic review did not run:
+per new head SHA only if a trigger is actually warranted — i.e. commits were
+pushed since CodeRabbit's last review (compare the last review's `commit_id`
+with the current PR head SHA) or no automatic review has run at all:
 - Run `~/ci-parity/cr_budget.sh` first to check tier and remaining slots
 - Trigger **once per head SHA** with `@coderabbitai review` (never in a loop)
 - Maximum **2 CodeRabbit reviews per PR** without explicit owner approval
