@@ -4,7 +4,7 @@
 #   .agents/dispatch.sh <agent> <request-file> [timeout-seconds]
 #
 # agent: deepseek | mimo | codex
-# Writes combined output to .agentlogs/<agent>-<request>.log (gitignored)
+# Writes combined output to .agents/.agentlogs/<agent>-<request>.log (gitignored)
 # and returns the agent's exit code.
 
 set -uo pipefail
@@ -16,10 +16,16 @@ TIMEOUT="${3:-1800}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO"
 
+BRANCH="$(git branch --show-current)"
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+  echo "[dispatch] error: refusing to dispatch on branch '$BRANCH'" >&2
+  exit 2
+fi
+
 [ -f "$REQUEST" ] || { echo "no such request file: $REQUEST" >&2; exit 2; }
 
-mkdir -p .agentlogs
-LOG=".agentlogs/${AGENT}-$(basename "$REQUEST" .md).log"
+mkdir -p .agents/.agentlogs
+LOG=".agents/.agentlogs/${AGENT}-$(basename "$REQUEST" .md).log"
 
 PROMPT="You are working in the git repository at $REPO.
 
@@ -47,6 +53,8 @@ case "$AGENT" in
     echo "unknown agent: $AGENT (expected deepseek|mimo|codex)" >&2; exit 2 ;;
 esac
 
-RC=${PIPESTATUS[0]}
-echo "[dispatch] agent=$AGENT exit=$RC"
+AGENT_RC=${PIPESTATUS[0]}
+TEE_RC=${PIPESTATUS[1]}
+RC=$((AGENT_RC | TEE_RC))
+echo "[dispatch] agent=$AGENT agent_rc=$AGENT_RC tee_rc=$TEE_RC exit=$RC"
 exit "$RC"

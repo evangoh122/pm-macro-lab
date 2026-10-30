@@ -5,12 +5,12 @@ files in this repo. Ported from the Rag_workbench protocol.
 
 ## Agents, lanes, and verified routes
 
-| Agent    | Lane                                               | Route (verified working)              | Verdict file                   |
-| :------- | :------------------------------------------------- | :------------------------------------ | :----------------------------- |
-| DeepSeek | **Builder** + API contracts, schemas, SQL routes   | `deepseek/deepseek-v4-pro`            | `.agents/deepseek/VERDICT-<f>.md` |
-| MiMo     | **Builder** + performance, DB cost, indexing       | `xiaomi-token-plan-sgp/mimo-v2.5-pro` | `.agents/mimo/VERDICT-<f>.md`     |
-| Codex    | **Validator** — correctness, security, tests       | `codex exec`                          | `.agents/codex/VERDICT-<f>.md`    |
-| Claude   | **Coordinator + Validator** — architecture, gating | (this session)                        | `.agents/claude/VERDICT-<f>.md`   |
+| Agent      | Role                                             | Route (verified working)              | Report                        |
+| :--------- | :----------------------------------------------- | :------------------------------------ | :---------------------------- |
+| Coder      | **Builder** — implementation (DeepSeek/MiMo)    | model-specific via opencode           | `BUILD DONE \| status: ... \| sha: <40-char> \| branch: ... \| evidence: <path>` |
+| Validator  | **Independent** — different model, exact SHA    | model-specific (not coder's model)    | `VALIDATION DONE \| verdict: <APPROVED\|CHANGES_REQUESTED\|FAILED> \| sha: <40-char> \| evidence: <path>` |
+| Codex Sol  | **Final gate** — correctness, security, tests   | `codex exec` (`gpt-6.1-sol`)          | `CODEX FINAL \| verdict: <APPROVED\|CHANGES_REQUESTED\|FAILED> \| sha: <SHA>` |
+| Opus 5.5   | **Fallback final gate** — only if Sol unavailable | Claude Opus 5.5 (token/usage limits)   | `OPUS FINAL \| verdict: ... \| sha: <SHA>` (recorded in PR) |
 
 Broken routes — do not use: `mimo/*` (literal `BASE_URL` placeholder in
 `~/.config/opencode/opencode.json`), `xiaomi/*` (insufficient account balance),
@@ -31,6 +31,26 @@ coordination and gating only.
 3. **SUMMARY** → `.agents/requests/SUMMARY-<feature>.md`
    Written by Claude once all verdicts are in. Sets the gate.
 
+## Terminal reports
+
+Every agent writes one terminal report before exiting:
+
+**Coder:**
+```
+BUILD DONE | status: <SUCCESS|FAILURE> | sha: <40-char SHA or NO_COMMIT> | branch: <branch> | evidence: <path>
+```
+
+**Validator** (on exact commit SHA only):
+```
+VALIDATION DONE | verdict: <APPROVED|CHANGES_REQUESTED|FAILED> | sha: <40-char SHA or SHA_NOT_VERIFIED> | evidence: <path>
+```
+
+**Final gate** (Codex Sol or Opus 5.5):
+```
+CODEX FINAL | verdict: <APPROVED|CHANGES_REQUESTED|FAILED> | sha: <SHA>
+OPUS FINAL | verdict: <APPROVED|CHANGES_REQUESTED|FAILED> | sha: <SHA>
+```
+
 ## Verdict format
 
 ```markdown
@@ -48,23 +68,48 @@ coordination and gating only.
 - <command> → pass/fail
 ```
 
+## CI parity gate
+
+Before approval, all required checks must pass:
+- `ruff check .`
+- `mypy src`
+- `pytest -m "not spark and not databricks and not live"`
+
 ## Lifecycle
 
 ```
-Claude: write BUILD-<feature>.md
-   └─► DeepSeek builds schema/contracts      → commits to branch
-   └─► MiMo builds perf-critical paths       → commits to branch
-   └─► DeepSeek + MiMo cross-verify          → VERDICT files
-   └─► Codex independent validation          → VERDICT file
-   └─► Claude independent validation + gate  → VERDICT + SUMMARY
-Gate: every required verdict APPROVED → open PR. Never push to main.
+Coder (e.g., DeepSeek or MiMo) builds feature
+   → Commits to branch (not main/master)
+   → Writes BUILD DONE | status: SUCCESS | sha: <40-char> | branch: <branch> | evidence: <path>
+
+Independent Validator (different model from coder)
+   → Runs CI parity gate (above checks must all pass)
+   → Validates exact commit SHA
+   → Writes VALIDATION DONE | verdict: APPROVED | sha: <40-char> | evidence: <path>
+   → Only APPROVED verdict allows final gate to proceed
+
+Codex Sol final gate (gpt-6.1-sol)
+   → Independent review on exact validated SHA
+   → If Codex Sol unavailable (token/usage limits): use Opus 5.5, record in PR
+   → Writes CODEX FINAL | verdict: APPROVED | sha: <SHA>
+
+PR + CodeRabbit
+   → Keep PR draft until final gate approves
+   → Once approved, trigger CodeRabbit review (if needed)
+   → Merge only when owner says so explicitly
 ```
 
 ## Hard rules
 
-- No agent pushes to `main`. Slices land as `slice/<feature>` branches + PR.
+- No coder or validator pushes to `main` or `master`. dispatch.sh enforces this.
+- Validator must be independent: different model from coder, or different agent.
+- Validator verdict must be for exact commit SHA; later commits require new validation.
+- Final gate must be Codex Sol (`gpt-6.1-sol`) for every change. Only use Opus 5.5 if
+  Sol hits token/usage limits, and record that substitution in the PR.
 - No secrets in committed files. Config via env var or secure secrets store only.
-- No agent gets unrestricted SQL. Parameterized queries only.
+- No parameterized SQL violations. A single f-string interpolation is a blocker.
 - A builder may not approve its own work as the sole verdict.
-- Tests must actually run. A verdict claiming "tests pass" without a pasted
-  command and result is itself a blocking finding.
+- CI parity gate must pass: `ruff check .`, `mypy src`, `pytest -m "not spark and not databricks and not live"`.
+- Tests must actually run. A verdict claiming "tests pass" without pasted output is blocking.
+- Terminal reports (BUILD DONE, VALIDATION DONE, CODEX FINAL/OPUS FINAL) are required.
+- Timeouts are passed at dispatch call site, not hardcoded: `.agents/dispatch.sh <agent> <request> [7200]`.
