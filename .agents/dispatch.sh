@@ -6,6 +6,11 @@
 # agent: deepseek | mimo | codex
 # Writes combined output to .agents/.agentlogs/<agent>-<request>.log (gitignored)
 # and returns the agent's exit code.
+#
+# Model selection (overridable via environment variables):
+#   DEEPSEEK_MODEL (default: deepseek/deepseek-flash for coder; set to
+#                   deepseek/deepseek-v4-pro for validator)
+#   MIMO_MODEL     (default: xiaomi-token-plan-sgp/mimo-v2.6-pro)
 
 set -uo pipefail
 
@@ -35,15 +40,18 @@ Read and follow the protocol at .agents/PROTOCOL.md, then read your role at
 Work only inside $REPO. Do not push to main. Do not commit secrets.
 When finished, write your verdict file exactly as PROTOCOL.md specifies."
 
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek/deepseek-flash}"
+MIMO_MODEL="${MIMO_MODEL:-xiaomi-token-plan-sgp/mimo-v2.6-pro}"
+
 echo "[dispatch] agent=$AGENT request=$REQUEST timeout=${TIMEOUT}s log=$LOG"
 
 case "$AGENT" in
   deepseek)
-    timeout "$TIMEOUT" opencode run --auto -m deepseek/deepseek-v4-pro \
+    timeout "$TIMEOUT" opencode run --auto -m "$DEEPSEEK_MODEL" \
       --title "pm-macro-lab-$(basename "$REQUEST" .md)" "$PROMPT" 2>&1 | tee "$LOG"
     ;;
   mimo)
-    timeout "$TIMEOUT" opencode run --auto -m xiaomi-token-plan-sgp/mimo-v2.5-pro \
+    timeout "$TIMEOUT" opencode run --auto -m "$MIMO_MODEL" \
       --title "pm-macro-lab-$(basename "$REQUEST" .md)" "$PROMPT" 2>&1 | tee "$LOG"
     ;;
   codex)

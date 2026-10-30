@@ -68,6 +68,33 @@ OPUS FINAL | verdict: <APPROVED|CHANGES_REQUESTED|FAILED> | sha: <SHA>
 - <command> → pass/fail
 ```
 
+## Coder and Validator selection
+
+The coder and validator are **MiMo and DeepSeek**, chosen by UTC peak hours:
+- **While DeepSeek is in peak hours:** MiMo codes, DeepSeek validates
+- **Outside DeepSeek peak hours:** DeepSeek codes, MiMo validates
+- **Fix rounds:** keep the original coder/validator pair
+
+**TODO (owner):** Define the DeepSeek UTC peak hour window and verify it in
+`.agents/pick-roles.sh`, or describe the window here if a script is unavailable.
+
+## Validator fallback order
+
+If the designated validator runs out of tokens or quota, use fallback validators
+in this order:
+1. GLM (must be independent model from coder, positively identified)
+2. Kimi (must be independent model from coder, positively identified)
+3. Antigravity (agy) (must be independent model from coder, positively identified)
+
+Each fallback validator must:
+- Be a different model from the coder's model
+- Return an `APPROVED` verdict for the exact commit SHA being validated
+- Provide evidence with the same exactness as the designated validator
+- Record the substitution in the PR comments
+
+If a fallback route is unavailable or cannot be positively identified, **stop**
+and ask the owner. Other validator failures also stop and ask the owner.
+
 ## CI parity gate
 
 Before approval, all required checks must pass:
