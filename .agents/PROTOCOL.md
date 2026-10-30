@@ -88,6 +88,10 @@ Dispatch uses environment variable overrides for agent models (set in `.agents/d
 | **MiMo** | `xiaomi-token-plan-sgp/mimo-v2.6-pro` | `MIMO_MODEL=<custom-model>` |
 | **Codex Sol final gate** | `gpt-6.1-sol` | `CODEX_MODEL=<custom-model>` |
 
+**Codex Sol invocation:** Uses `--sandbox workspace-write` to allow verdict file
+writing to `.agents/` (workspace-write is required to write verdict files; 
+read-only sandbox prevents file writes). Stdin is closed with `< /dev/null`.
+
 **Opus 5.5 fallback:** Used as the final gate only if Codex Sol hits token/usage
 limits (rate-limit, quota, or usage error). This is a separate Claude route, not
 a dispatch.sh override. Substitution must be recorded in the PR.

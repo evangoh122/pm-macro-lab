@@ -58,8 +58,8 @@ case "$AGENT" in
       --title "pm-macro-lab-$(basename "$REQUEST" .md)" "$PROMPT" 2>&1 | tee "$LOG"
     ;;
   codex)
-    timeout "$TIMEOUT" codex exec -m "$CODEX_MODEL" --sandbox read-only \
-      "$PROMPT" 2>&1 | tee "$LOG" < /dev/null
+    timeout "$TIMEOUT" codex exec -m "$CODEX_MODEL" --sandbox workspace-write \
+      "$PROMPT" < /dev/null 2>&1 | tee "$LOG"
     ;;
   *)
     echo "unknown agent: $AGENT (expected deepseek|mimo|codex)" >&2; exit 2 ;;
