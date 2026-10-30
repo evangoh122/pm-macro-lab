@@ -20,7 +20,19 @@ See [docs/PLAN.md](docs/PLAN.md) for the thesis, decisions, data sources, Databr
 
 ```
 pip install -e ".[dev]"
-ruff check . && pytest -m "not spark and not databricks and not live"
+ruff check . && mypy src && pytest -m "not spark and not databricks and not live"
 ```
 
 Findings so far: [Fed speech count](docs/findings/fed-speech-count.md).
+
+## Agent-coordinated builds
+
+The `.agents/` directory implements a multi-agent build and validation workflow (see [.agents/PROTOCOL.md](.agents/PROTOCOL.md)):
+
+- **Coder** (DeepSeek or MiMo): builds feature and writes `BUILD DONE` report
+- **Validator** (different model): independent review on exact SHA, writes `VALIDATION DONE` verdict
+- **Codex Sol** (`gpt-6.1-sol`): final gate for every change, writes `CODEX FINAL` verdict
+  (Opus 5.5 fallback only if Sol hits token/usage limits; substitution recorded in PR)
+- **Claude**: coordinator, dispatcher orchestration
+
+Dispatch with `.agents/dispatch.sh <agent> <request-file> [timeout-seconds]` (pass 7200 for long-running work). Agents read the protocol and their role, then execute the request and write a verdict file. Logs are written to `.agents/.agentlogs/` (gitignored).
