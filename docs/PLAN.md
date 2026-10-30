@@ -52,6 +52,7 @@ Two targets are always scored separately:
 | Macro history with vintages | FRED / **ALFRED** REST API | Use vintages; key in a Databricks secret scope. FRED MCP is for exploration only. |
 | First-print labels | BLS release pages / ALFRED earliest vintage | Must match contract resolutions. |
 | Release calendar | FRED release dates, BLS, Fed | Store official release time and our ingestion time separately. |
+| Fed dot plot (SEP) | federalreserve.gov `monetarypolicy/fomcprojtabl{YYYYMMDD}.htm` (HTML tables; Figure 2 = anonymous dot histogram per 1/8-point midpoint); FRED release 326 series `FEDTARMD`, `FEDTARMDLR`, `GDPC1MD`, `UNRATEMD`, `PCECTPIMD`, `JCXFEMD` | Released 14:00 ET on the meeting's last day (Mar/Jun/Sep/Dec). FRED serves only the latest projection by default: use ALFRED vintages for history (depth **UNVERIFIED**), parse the Fed HTML for each release, and reconcile two releases by hand against the PDF. About 9 releases since Sep 2024. Dots are anonymous and cannot be linked to speakers. |
 | Nowcasts | Cleveland Fed inflation nowcast, Atlanta Fed GDPNow, NY Fed | Check terms and snapshot timing. |
 | Energy prices | FRED GASREGW (EIA) | For CPI energy pass-through. |
 | Rates | FRED DTB4WK, DTB3, EFFR, SOFR, DGS2 | Daily only; cannot validate intraday fills. |
@@ -63,7 +64,7 @@ Raw data stays in the private workspace; publish only derived aggregates. Record
 
 ## 5. Hypotheses
 
-- **H1 (calibration):** strike-ladder probabilities are miscalibrated against a nowcast/base-effect model at T-7d, T-1d, T-1h. First test on FOMC, then CPI.
+- **H1 (calibration):** strike-ladder probabilities are miscalibrated against a nowcast/base-effect model at T-7d, T-1d, T-1h. First test on FOMC, then CPI. SEP `dot_minus_market_bp` is a conditioning control.
 - **H2 (information flow):** LLM-extracted Fed-communication features add out-of-sample log-loss improvement beyond market + nowcast. Confirmatory test uses only Track C in section 7.
 - **H3 (paper portfolio):** quarter-Kelly sizing with fills against captured books survives spread, fees, latency and partial fills.
 
@@ -81,6 +82,7 @@ Mechanics: ForecastEx does not allow selling, so "short" means buying the NO con
 | 6 | **Pre-release drift and repricing speed** from trade timestamps; repricing of `FF` after CPI/payrolls. | Research, not a trade | pairs CSV | High as a study | Not monetisable at this size; 5-minute capture cannot resolve fast repricing |
 | 7 | **Coupon carry**: deep in-the-money long-dated YES earns coupon plus convergence vs T-bills. | Carry vs risk-free | ForecastEx, FRED DTB3 | Medium | Tail loss; coupon can change |
 | 8 | Ladder vs TIPS breakeven | n/a | FRED T5YIE | Low | Horizon mismatch; descriptive only. Skip. |
+| 9 | **SEP-day far-meeting repricing** (positive control). Does the `FF` ladder for later meetings visibly reprice around 14:00 ET on SEP days? Also which path moves toward which: dots, ForecastEx ladder, bills/SOFR. | Research/context, not a trade | pairs CSV, SEP tables, FRED rates | High as a study | About 9 events; a sign check, not inference. Own-meeting contracts stop before the release. |
 
 **Run first: #1, #3, #2.** (Both models independently ranked ladder consistency, the nowcast comparison and Fed-path relative value as the top three, with differences in order.) Cross-asset hedges come after the executable-data question is answered.
 
@@ -128,6 +130,8 @@ Both models agree sentiment runs **alongside** the ladder analyses, not instead 
 
 **Power (disagreement flagged).** Detectable standardised effect is about 2.8/sqrt(n) (80% power, alpha 0.05): 8 FOMC events about 1.0; 32 events about 0.5; about 70 events (Track E history) about 0.33. Opus estimates several hundred speeches would detect d of about 0.15-0.2; Sol notes this is unmeasured. **The speech count and variance are unverified: estimate power by simulation in P1 before committing to the experiment.**
 
+**SEP (dot plot) integration.** Both models: track it as a point-in-time anchor and information shock, not as a predictor (about 4 releases a year, about 9 in sample; dots forecast poorly and markets absorb them within minutes). Minimal roles: (1) **positive control** for the speech experiment: if ForecastEx does not visibly reprice far meetings after an SEP (analysis #9), the speech study cannot detect anything smaller; (2) **construct-validity check** for the LLM scorer: average `hawk_delta` of speeches between two SEPs should have the sign of the next `dot_median_shift` (nine points, a sign check only); (3) slow-moving control in the PIT tables. The SEP cannot predict its own meeting's `FF`/`FFDEC` contracts (it is released with the decision); it informs later meetings. In the speech experiment, use the **last SEP before the speech**, never the next. The year-end dot for year Y maps to the December `FF` ladder for Y; whether "above X" lines up with the 1/8-point midpoint grid is **UNVERIFIED** (read the contract spec). Features: `dot_median_shift` (same horizon vs previous SEP), dispersion (IQR, count above/below market), `dot_minus_market_bp` (vs December FF ladder implied mean and a bills/SOFR proxy; relative-value context, not arbitrage), `market_repricing_sep`. Disagreement: Opus expects dots to chase the market (gap closes from the dot side); this is a hypothesis for #9, not a finding. Engineering budget: about 2 days; no separate trading claim.
+
 **Prior.** Likely adds nothing: CPI YoY (base effect, nowcast and gasoline dominate), payrolls, FOMC meetings already priced above 90%. Possible value: slow ForecastEx repricing after speeches and minutes, FF meetings 2-3 meetings out, meetings priced 20-80%. Thin CPI strikes are a staleness problem (analysis #1), not a sentiment problem.
 
 **Testing rules.** One pre-registered primary hypothesis per track; everything else exploratory with Benjamini-Hochberg correction; pool indicators only in a separately preregistered hierarchical analysis.
@@ -147,11 +151,11 @@ Both models agree sentiment runs **alongside** the ladder analyses, not instead 
 
 Catalog `pm_macro`, schemas `bronze`, `silver`, `gold`, `ml`. Polars transforms, Spark I/O at the edges. Every row carries `data_source`, `ingest_ts`; bronze adds `payload_hash`, `schema_ver`.
 
-**Bronze (append-only, idempotent):** `forecastex_prices_raw`, `forecastex_pairs_raw`, `forecastex_summary_raw` (serverless job, no device needed); `ibkr_contracts_raw`, `ibkr_quotes_raw` (from the device); `fred_obs_raw`, `alfred_vintages_raw`, `release_calendar_raw`, `nowcast_raw`, `fed_docs_raw` (with first-seen `available_ts`), `gdelt_raw`.
+**Bronze (append-only, idempotent):** `forecastex_prices_raw`, `forecastex_pairs_raw`, `forecastex_summary_raw` (serverless job, no device needed); `ibkr_contracts_raw`, `ibkr_quotes_raw` (from the device); `fred_obs_raw`, `alfred_vintages_raw`, `release_calendar_raw`, `nowcast_raw`, `fed_docs_raw` (with first-seen `available_ts`), `fed_sep_html_raw` (url, meeting_date, fetched_ts, payload_hash, `data_source="frb_sep"`; SEP FRED series go into `alfred_vintages_raw`), `gdelt_raw`.
 
-**Silver:** `contracts` (SCD2 on rules), `quotes` (YES and NO legs, bid/ask, size, field semantics, stale flag), `trades`, `macro_events`, `event_contract_map`, `first_prints`, `vintages`, `text_docs` (pub_ts, available_ts, ingest_ts), `text_scores` (model_id, model_cutoff, prompt_ver, confirmatory flag).
+**Silver:** `contracts` (SCD2 on rules), `quotes` (YES and NO legs, bid/ask, size, field semantics, stale flag), `trades`, `macro_events`, `event_contract_map`, `first_prints`, `vintages`, `text_docs` (pub_ts, available_ts, ingest_ts), `text_scores` (model_id, model_cutoff, prompt_ver, confirmatory flag), `sep_releases` (sep_id, meeting_date, release_ts, n_participants), `sep_dots` (sep_id, variable, horizon, midpoint, n), `sep_summary` (median, central tendency, range per variable and horizon).
 
-**Gold:** `implied_dist` (pmf + monotone_flag), `ladder_arb_flags`, `features_pit` (UC feature table, time-series key `as_of_ts`), `labels` (separate), `preds`, `signal_eval`, `paper_orders`, `paper_positions`, `paper_pnl`.
+**Gold:** `implied_dist` (pmf + monotone_flag), `ladder_arb_flags`, `features_pit` (UC feature table, time-series key `as_of_ts`), `labels` (separate), `preds`, `sep_features_pit` (keyed `(as_of_ts, horizon)`), `sep_event_study`, `signal_eval`, `paper_orders`, `paper_positions`, `paper_pnl`.
 
 **Capture on the owner's device:** `ib_async` against IB Gateway, both legs, rotating batches under the 100 market-data-line default every 5 minutes, 50 messages/second pacing. Local Parquet with `capture_ts` and `data_source="ibkr_tws"`, uploaded hourly to a UC Volume. Daily Gateway restart and periodic re-login (2FA; no unattended headless login) are expected: log heartbeats and mark known gaps.
 
@@ -162,7 +166,7 @@ Catalog `pm_macro`, schemas `bronze`, `silver`, `gold`, `ml`. Polars transforms,
 | Phase | Weeks | Work | Gate |
 |---|---|---|---|
 | P0 | 1 | Repo, bundle, catalog, secret scope, CI. IBKR checks: eligibility, live quotes, paper orders, `reqHistoricalData`, fee convention. ForecastEx CSV audit (schemas, coverage, terms). Start both-leg quote capture. **Start the Fed speech/first-seen crawler (federalreserve.gov RSS/pages, store `available_ts` on first observation).** | CSV audit documented; 72h capture with no gaps; IBKR gates passed or fallback chosen |
-| P1 | 1-3 | CPI YoY pipeline: contracts, ALFRED CPIAUCNS, first prints, calendar, base-effect + nowcast inputs. FOMC data from CSVs. Analysis #1 (ladder scan) on history. | First-print labels match contract resolutions 100%; liquidity measured per strike |
+| P1 | 1-3 | CPI YoY pipeline: contracts, ALFRED CPIAUCNS, first prints, calendar, base-effect + nowcast inputs. FOMC data from CSVs. Analysis #1 (ladder scan) on history. SEP parser + backfill (about 9 releases) with human reconciliation; analysis #9. | First-print labels match contract resolutions 100%; liquidity measured per strike |
 | P2 | 3-6 | FOMC calibration (H1), analysis #3 (Fed-path RV), CPI analysis #2, market-only baselines. Select Track C model on a labeled sample. | Leakage suite passes; baseline report merged |
 | P3 | 6-9 | **Fed speech repricing experiment (section 7b)** on Track E; power simulation first; pre-registration, bridge test, Track C prospective scoring begins only if the result is positive | Pre-registration committed; or null result written up |
 | P4 | 9-14+ | Payrolls; remaining analyses (#4-#7); paper trading against captured books, minimum 6 weeks. Cross-asset hedge only if free timestamped data and paper access are confirmed. | Live capital requires a separate owner decision |
@@ -178,7 +182,8 @@ src/pm_macro/
   ingest/{forecastex_csv,ibkr_capture,fred_alfred,fed_text,gdelt,calendar}.py
   bronze/ silver/ gold/
   features/pit.py   labels/first_print.py
-  analysis/{ladder_arb,fed_path_rv,cpi_base_effect,speech_repricing}.py
+  analysis/{ladder_arb,fed_path_rv,cpi_base_effect,speech_repricing,sep_repricing}.py
+  ingest/sep.py
   llm/{score,cache,cutoff_guard}.py
   models/{calibration,nowcast,combined}.py
   backtest/{replay,fills,sizing,metrics}.py
@@ -187,7 +192,7 @@ tests/{unit,leakage,fixtures}/
 docs/{PLAN.md,data_licensing.md,decisions.md,findings/}
 ```
 
-CI: ruff, mypy, unit + leakage tests (`pytest -m "not spark and not databricks and not live"`), `databricks bundle validate`, a check that fails on pandas imports or committed data files outside `tests/fixtures`. CI never needs licensed data and never places orders. Required leakage tests: planted future-dated row ignored; revised vintage not visible before its vintage time; `cutoff_guard` rejects pre-cutoff events and unknown cutoffs; confirmatory flag requires a pre-registered prompt hash.
+CI: ruff, mypy, unit + leakage tests (`pytest -m "not spark and not databricks and not live"`), `databricks bundle validate`, a check that fails on pandas imports or committed data files outside `tests/fixtures`. CI never needs licensed data and never places orders. Required leakage tests: planted future-dated row ignored; revised vintage not visible before its vintage time; `cutoff_guard` rejects pre-cutoff events and unknown cutoffs; confirmatory flag requires a pre-registered prompt hash; SEP rows are invisible before 14:00 ET on the release date; FRED SEP values are read only from vintages existing at `as_of_ts`; SEP parser output is reconciled against two PDFs.
 
 ## 12. Open questions
 
