@@ -34,17 +34,30 @@ fi
 mkdir -p .agents/.agentlogs
 LOG=".agents/.agentlogs/${AGENT}-$(basename "$REQUEST" .md).log"
 
-PROMPT="You are working in the git repository at $REPO.
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek/deepseek-flash}"
+MIMO_MODEL="${MIMO_MODEL:-xiaomi-token-plan-sgp/mimo-v2.6-pro}"
+CODEX_MODEL="${CODEX_MODEL:-gpt-6.1-sol}"
+
+PROMPT_BASE="You are working in the git repository at $REPO.
 
 Read and follow the protocol at .agents/PROTOCOL.md, then read your role at
 .agents/${AGENT}/ROLE.md, then execute the request in $REQUEST.
 
-Work only inside $REPO. Do not push to main. Do not commit secrets.
-When finished, write your verdict file exactly as PROTOCOL.md specifies."
+Work only inside $REPO. Do not push to main. Do not commit secrets."
 
-DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek/deepseek-flash}"
-MIMO_MODEL="${MIMO_MODEL:-xiaomi-token-plan-sgp/mimo-v2.6-pro}"
-CODEX_MODEL="${CODEX_MODEL:-gpt-6.1-sol}"
+if [ "$AGENT" = "codex" ]; then
+  PROMPT="$PROMPT_BASE
+
+When finished, print your verdict between these sentinel lines (do not write files):
+=== VERDICT BEGIN ===
+<verdict line: CODEX FINAL | verdict: ... | sha: ...>
+<additional evidence lines as needed>
+=== VERDICT END ==="
+else
+  PROMPT="$PROMPT_BASE
+
+When finished, write your verdict file exactly as PROTOCOL.md specifies."
+fi
 
 echo "[dispatch] agent=$AGENT request=$REQUEST timeout=${TIMEOUT}s log=$LOG"
 

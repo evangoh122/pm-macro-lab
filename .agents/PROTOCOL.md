@@ -88,9 +88,18 @@ Dispatch uses environment variable overrides for agent models (set in `.agents/d
 | **MiMo** | `xiaomi-token-plan-sgp/mimo-v2.6-pro` | `MIMO_MODEL=<custom-model>` |
 | **Codex Sol final gate** | `gpt-6.1-sol` | `CODEX_MODEL=<custom-model>` |
 
-**Codex Sol invocation:** Uses `--sandbox workspace-write` to allow verdict file
-writing to `.agents/` (workspace-write is required to write verdict files; 
-read-only sandbox prevents file writes). Stdin is closed with `< /dev/null`.
+**Codex Sol invocation:** Uses `--sandbox workspace-write` to enable pytest/uv
+with writable `/tmp` (read-only sandbox cannot create temp files). Codex CANNOT
+write to `.agents/` (dot-directories blocked by sandbox even under workspace-write).
+Instead, Codex prints its verdict between sentinel lines on stdout:
+```
+=== VERDICT BEGIN ===
+CODEX FINAL | verdict: APPROVED | sha: <SHA>
+<additional evidence lines>
+=== VERDICT END ===
+```
+The dispatcher captures this block from the log and persists it as the verdict
+file. Stdin is closed with `< /dev/null` to prevent stdin blocking.
 
 **Opus 5.5 fallback:** Used as the final gate only if Codex Sol hits token/usage
 limits (rate-limit, quota, or usage error). This is a separate Claude route, not
@@ -148,6 +157,16 @@ PR + CodeRabbit
      max 2 CodeRabbit reviews per PR without explicit owner approval)
    → Merge only when owner says so explicitly
 ```
+
+## CodeRabbit re-review rule (standing)
+
+**After validator and final gate both approve,** trigger CodeRabbit review once
+per new head SHA if its automatic review did not run:
+- Run `~/ci-parity/cr_budget.sh` first to check tier and remaining slots
+- Trigger **once per head SHA** with `@coderabbitai review` (never in a loop)
+- Maximum **2 CodeRabbit reviews per PR** without explicit owner approval
+- If CodeRabbit answers "Review rate limited", stop immediately; retry no sooner
+  than 1 hour later (its limit counts over 7 days, so retrying makes it worse)
 
 ## Hard rules
 
