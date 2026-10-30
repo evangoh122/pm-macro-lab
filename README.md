@@ -10,8 +10,17 @@ See [docs/PLAN.md](docs/PLAN.md) for the thesis, decisions, data sources, Databr
 
 | Phase | State |
 |---|---|
-| P0 foundation + IBKR verification | not started |
+| P0 foundation + IBKR verification | scaffold in PR (package, `cutoff_guard`, PIT helper, leakage tests, CI); IBKR checks and Databricks bundle pending |
 | P1 CPI data | not started |
 | P2 baseline models | not started |
 | P3 LLM signal | not started |
 | P4 paper trading, FOMC/payrolls | not started |
+
+## Develop
+
+```
+pip install -e ".[dev]"
+ruff check . && pytest -m "not spark and not databricks and not live"
+```
+
+Findings so far: [Fed speech count](docs/findings/fed-speech-count.md).

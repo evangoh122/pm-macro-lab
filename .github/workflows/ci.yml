@@ -1,0 +1,20 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy src
+      - run: pytest -m "not spark and not databricks and not live"
+      - name: No committed data files outside fixtures
+        run: |
+          bad=$(git ls-files | grep -E '\.(parquet|csv)$' | grep -v '^tests/fixtures/' || true)
+          if [ -n "$bad" ]; then echo "$bad"; exit 1; fi

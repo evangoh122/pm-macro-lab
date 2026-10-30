@@ -1,0 +1,8 @@
+# Commit entries BEFORE the event they cover. Confirmatory rows need a prompt_hash listed here.
+registrations: []
+# Example:
+# - id: speech-repricing-v1
+#   model_id: claude-opus-5-5
+#   prompt_hash: "<sha256>"
+#   committed_on: 2026-11-15
+#   primary_hypothesis: "partial corr(hawk_delta_residual, 24h FF repricing) > 0"
