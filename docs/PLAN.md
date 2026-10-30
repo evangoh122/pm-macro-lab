@@ -1,10 +1,10 @@
 # pm-macro-lab: project plan
 
-Status: draft v1 (2026-10-30). Produced from a two-model discussion (Claude Opus and GPT Sol), then amended by the owner's decisions below.
+Status: draft v2 (2026-10-30). Produced from a two-model discussion (Claude Opus and GPT Sol), two research rounds and one debate round, then amended by the owner's decisions below. Items marked **UNVERIFIED** were not confirmed from a primary source and must be checked in P0.
 
 ## 1. Thesis
 
-Prediction-market prices on US macro releases are the baseline. We test whether free nowcasts, official data and Fed communication, scored by an LLM, add out-of-sample information beyond the market price. A rigorous null result ("no edge after costs, and here is why") is a valid, publishable outcome. Sentiment is one feature, not the whole thesis.
+Prediction-market prices on US macro releases are the baseline. We test whether free macro data, nowcasts and Fed communication scored by a strong LLM add out-of-sample information beyond the market price, and whether the market's own structure offers hedged or relative-value opportunities. A rigorous null result ("no edge after costs, and here is why") is a valid, publishable outcome.
 
 Two targets are always scored separately:
 1. the eventual outcome (resolution value)
@@ -14,101 +14,145 @@ Two targets are always scored separately:
 
 | Decision | Choice |
 |---|---|
-| Venue | **Interactive Brokers (IBKR)** prediction contracts, because it is the legal route from Singapore. Not Kalshi directly. |
-| Events | FOMC decision, CPI, Payrolls (NFP) |
-| Build order | **CPI first**; FOMC and payrolls follow once the CPI pipeline works |
-| Data | Free sources only |
-| Trading | Paper trading only, eventually. No live capital without a separate owner decision. |
+| Venue | **Interactive Brokers (IBKR) / ForecastEx** event contracts (legal route from Singapore). IBKR Gateway runs on the owner's own device. |
+| Events | FOMC, CPI, Payrolls |
+| Build order | CPI pipeline first (owner decision), but see section 3: the first *calibration test* runs on FOMC because CPI is thin |
+| Data | Free sources only ("freecast": free nowcasts). Model inference cost is separate from the free-data rule. |
+| LLM | **Strong model** as the primary scorer (section 7) |
+| Trading | Paper trading only. No live capital without a separate owner decision. |
 | Repo | `pm-macro-lab`, private |
 | Platform | New Databricks workspace (separate from qp1) |
-| LLM leakage | Opus-style `cutoff_guard` + cutoff registry (see section 6) |
 | Code style | Polars only (no pandas); `data_source` column on every row |
 
-## 3. Open item: IBKR venue facts must be verified in Week 1
+## 3. Venue facts (ForecastEx via IBKR)
 
-The two models' research assumed Kalshi. The IBKR route changes the data-access picture and **nothing below about IBKR is verified yet**. Week-1 tasks:
-- Confirm which IBKR event contracts exist for CPI, FOMC and payrolls, their strike ladders, tick size, fees and settlement source/timestamp.
-- Confirm what the IBKR API (TWS/Gateway) gives us: live bid/ask and sizes, contract lists, and whether any **historical** quotes or trades exist.
-- Confirm account/market-data permissions in Singapore and whether a paper account can access event contracts.
-- If IBKR provides no history, then quotes must be captured **prospectively from day one**, and every earlier result is labelled "indicative, not executable".
+**Verified by at least one model from a primary page, and re-checked where noted:**
+- Products: `CPIY` (US CPI Yearly, **year-over-year, not month-over-month**; NSA headline), `CPIC` (core CPI, YoY), `FF` (Fed funds target "above X%", 25bp steps), `FFDEC` (Fed decision), `PREMP` (payroll employment thresholds). Rule PDFs: `data.forecastex.com/regulatory/CPIYTermsandConditions.pdf`, `CPICTermsandConditions.pdf`.
+- Each contract pays $1 or $0, quoted in $0.01 ticks. No selling: exit by buying the opposite side (IBKR nets the pair). Limit orders only (DAY, GTC, IOC).
+- Stop times reported in ForecastEx files: payrolls and CPI around 07:30 CT, Fed contracts around 13:00 CT. Settlement source: initial BLS release for CPI/payrolls (plausible; **UNVERIFIED**, read the contract specs).
+- Fees: $0 IBKR commission plus a $0.01 exchange fee per contract, charged on each side per the ForecastEx FAQ. Reconcile against the paper account to avoid double-counting.
+- Incentive coupon: IBKR displays about 3.38% APY on position value, variable, paid monthly. It must be included in P&L and carry analysis.
+- API: contracts are `secType=OPT`, `exchange=FORECASTX`, Right `C`=Yes and `P`=No. `BID` is the highest bid and `ASK` means "Buy Yes Now at", not an ordinary sell quote. IBKR says historical TRADES and real-time LAST are not available through the API.
+- Free history from the exchange itself (re-verified 2026-10-30 by direct request, HTTP 200 text/csv): `https://forecastex.com/api/download?type={prices|pairs|summary}&date=YYYYMMDD`. `prices` and `pairs` returned data for 2024-08-01 and 2026-09-24; `summary` returned 404 for 2024-08-01 but data for 2026-09-24. Opus reports `pairs` has matched trades with nanosecond timestamps; schemas, completeness and redistribution terms are **UNVERIFIED**. One model got 404s earlier, so treat availability as flaky and retry with backoff. There is no order-book history.
+- Liquidity snapshot (single day, 2026-09-24, `total_pairs`): `FFDEC` 5,349; `FF` 1,928; `PREMP` 185; `CPIY` 86; `CPIC` 57. One day is a warning, not a measurement: P0 must measure volume, quote size and freshness across strikes and time.
 
-If IBKR event contracts turn out to cover too few macro releases, fall back to a reference-price design: use free macro data plus a nowcast model and treat the market as an external benchmark only. This decision is made at the Week-1 gate.
+**UNVERIFIED, account-specific P0 gates:** the owner's Singapore eligibility and permission name; whether live (not delayed) quotes are free; whether a paper account can see and trade `FORECASTX` contracts; historical `BID`/`ASK`/`MIDPOINT` bars via `reqHistoricalData`; ForecastEx rulebook details.
+
+**Consequences for the plan**
+- Week-1 gate is split. *Historical research* (ForecastEx CSVs + FRED) can start now. *Executable claims* need captured quotes from the owner's Gateway.
+- First calibration test runs on FOMC (`FF`/`FFDEC`) because it has far more volume. CPI remains the first data-pipeline build because its labels and nowcast mapping are the hardest part to get right.
+- CPI target is **YoY on the NSA index (CPIAUCNS)**, not MoM. 11 of 12 months in a YoY print are already known, so the contract is a bet on one month's NSA change plus a base effect. The nowcast model must be built accordingly.
 
 ## 4. Free data sources
 
 | Need | Source | Notes |
 |---|---|---|
-| Macro history with vintages | FRED / **ALFRED** REST API | Default FRED values are revised; use vintages. Pipeline calls the REST API directly with the key in a Databricks secret scope. The FRED MCP is for interactive exploration only. |
-| Release calendar | FRED releases/dates, BLS and Fed schedules | Record official release timestamps and our ingestion time separately. |
-| First-print labels | BLS release pages / ALFRED earliest vintage | Labels must be the first-print value the contract resolved on. |
-| Nowcasts | Cleveland Fed inflation nowcast, Atlanta Fed GDPNow, NY Fed nowcast | Check each site's terms and snapshot timing. |
+| Historical market prices/trades | ForecastEx CSV downloads | Indicative history only; no order books. Check terms. |
+| Live quotes | IBKR TWS/Gateway on owner's device | Capture **both YES and NO legs** (do not derive NO from YES). |
+| Macro history with vintages | FRED / **ALFRED** REST API | Use vintages; key in a Databricks secret scope. FRED MCP is for exploration only. |
+| First-print labels | BLS release pages / ALFRED earliest vintage | Must match contract resolutions. |
+| Release calendar | FRED release dates, BLS, Fed | Store official release time and our ingestion time separately. |
+| Nowcasts | Cleveland Fed inflation nowcast, Atlanta Fed GDPNow, NY Fed | Check terms and snapshot timing. |
+| Energy prices | FRED GASREGW (EIA) | For CPI energy pass-through. |
+| Rates | FRED DTB4WK, DTB3, EFFR, SOFR, DGS2 | Daily only; cannot validate intraday fills. |
 | Fed communication | federalreserve.gov statements, minutes, speeches | Main text signal for H2. |
-| News | GDELT (free, 15-minute) | Noisy; deduplicate syndicated stories. |
-| Market quotes | IBKR API | Capture bid/ask/size every 5 minutes for all open macro contracts. |
-| Consensus forecasts | none free and reliable | Open question: nowcasts only unless the owner has a paid source. |
+| News | GDELT (free, 15-minute) | Noisy; dedupe. |
+| Consensus forecasts | none free | Nowcasts only. |
 
-Rule: store raw data in the private workspace; publish only derived aggregates. Record terms in `docs/data_licensing.md`.
+Raw data stays in the private workspace; publish only derived aggregates. Record terms in `docs/data_licensing.md`.
 
 ## 5. Hypotheses
 
-- **H1 (calibration):** strike-ladder probabilities are miscalibrated against a nowcast model at T-7d, T-1d, T-1h.
-- **H2 (information flow):** LLM-extracted Fed-communication features add out-of-sample log-loss improvement beyond market + nowcast. Tested only under the leakage rules in section 6.
-- **H3 (paper portfolio):** quarter-Kelly sizing with fills against captured books survives spread, fees, latency, and partial fills.
-- **Consistency check:** each strike ladder should imply a monotone distribution; violations are logged as internal-arbitrage events.
+- **H1 (calibration):** strike-ladder probabilities are miscalibrated against a nowcast/base-effect model at T-7d, T-1d, T-1h. First test on FOMC, then CPI.
+- **H2 (information flow):** LLM-extracted Fed-communication features add out-of-sample log-loss improvement beyond market + nowcast. Confirmatory test uses only Track C in section 7.
+- **H3 (paper portfolio):** quarter-Kelly sizing with fills against captured books survives spread, fees, latency and partial fills.
 
-## 6. LLM leakage control (cutoff guard)
+## 6. Quant analyses and market-neutral strategies
 
-- `config/llm_cutoffs.yaml` is the registry: model id -> training cutoff.
-- `cutoff_guard` refuses to score or evaluate a document/event pair where the event resolves on or before the model's cutoff (plus a safety margin).
-- Every `text_scores` row records `model_id`, `model_cutoff`, `prompt_ver`.
-- A documented cutoff is necessary but **not sufficient**: memorization can still exist. So historical LLM results are labelled **exploratory**. The confirmatory H2 test uses articles scored prospectively with a pinned model and prompt, before the outcome is known.
-- Scores are cached by (doc_hash, prompt_ver, model_id) for reproducibility.
+Mechanics: ForecastEx does not allow selling, so "short" means buying the NO contract; positions are fully collateralized. Hedging with CME futures/options through IBKR likely needs paid market data (**UNVERIFIED** whether delayed or paper data is free). For any external hedge, start with measurement using FRED data and add a tradable hedge only after confirming free timestamped prices and paper-instrument access.
 
-## 7. Backtest and evaluation rules
+| # | Analysis | Why it is hedged/neutral | Free data | Feasibility | Main risk |
+|---|---|---|---|---|---|
+| 1 | **Ladder no-arbitrage scan.** For thresholds K1<K2, buying YES(K2) + NO(K1) pays at least $1 in every outcome; flag executable cost below $1 after fees. Also YES/NO parity and `FFDEC` vs `FF` coherence for the same meeting. Do not assume vanilla-option butterfly convexity for digital prices. | Payoff locked in every state if both legs fill | CSVs + captured quotes | High for FF/FFDEC; CPI thin | Fees (~$0.02 per round trip) eat most gaps; stale/asynchronous quotes; legging. Doubles as a data-quality and simulator test. |
+| 2 | **CPI YoY ladder vs base-effect + nowcast model** (Cleveland nowcast, ALFRED CPIAUCNS, gasoline). | Not market-neutral: limited-risk directional relative value, e.g. bounded YES/NO strike spreads | ALFRED, nowcast, FRED | Medium (thin book) | YoY mapping, seasonal factors, first print vs revision |
+| 3 | **Fed-path relative value.** `FF` ladder distribution vs path implied by bills, EFFR, SOFR. | Measured as relative value now; estimated duration-neutral paper hedge later. A basis trade, not arbitrage. | FRED rates | High (most liquid) | Meeting-date and average-rate mismatch, risk premia, coarse bill curve |
+| 4 | **Event-implied width vs realized surprise** and release-day moves in rates/SPY/TLT/FX. | Buying both tails is a hedged long-volatility shape; beta-hedged relative returns for the cross-asset study | ForecastEx, ALFRED, FRED/free prices | Medium | Few events; tails are costly at the tick |
+| 5 | **Core vs headline CPI consistency** (`CPIC` vs `CPIY`) vs energy-implied spread. | One ladder long, other short | ForecastEx, FRED | Low (both thin) | Not mechanically neutral; food/shelter noise |
+| 6 | **Pre-release drift and repricing speed** from trade timestamps; repricing of `FF` after CPI/payrolls. | Research, not a trade | pairs CSV | High as a study | Not monetisable at this size; 5-minute capture cannot resolve fast repricing |
+| 7 | **Coupon carry**: deep in-the-money long-dated YES earns coupon plus convergence vs T-bills. | Carry vs risk-free | ForecastEx, FRED DTB3 | Medium | Tail loss; coupon can change |
+| 8 | Ladder vs TIPS breakeven | n/a | FRED T5YIE | Low | Horizon mismatch; descriptive only. Skip. |
 
-- Market-only calibrated baseline first (Brier, log loss, reliability); sentiment model reports the incremental out-of-sample effect.
-- Chronological splits grouped by release (strikes in one release are correlated). At each training cutoff include only labels already resolved. Purge window around the cutoff.
+**Run first: #1, #3, #2.** (Both models independently ranked ladder consistency, the nowcast comparison and Fed-path relative value as the top three, with differences in order.) Cross-asset hedges come after the executable-data question is answered.
+
+## 7. LLM design (strong model, two tracks)
+
+**Primary (Track C, confirmatory):** a strong model, `claude-opus-5-5` (Anthropic-documented cutoff June 2026) or `claude-sonnet-5-5` (same cutoff); the choice is made by a small hand-labeled evaluation in P2. Cost is negligible at a few hundred documents a year. Strict JSON schema output; score each document 3 times and store median and spread, because temperature cannot be set; cache every response (doc_hash, prompt_ver, model_id) permanently. Anthropic lists retirement no sooner than September 2027, so finish the confirmatory study before then.
+
+**Exploratory (Track E):** pinned open-weight `Llama-3.1-70B-Instruct` (published cutoff December 2023; verify on the model card) on Databricks GPU, run over ForecastEx history from August 2024. Used for feature selection, prompt design and effect-size estimates only. `Llama-3.1-8B-Instruct` is an optional cheap comparator.
+
+**Rules:**
+- Prefer *extractive* features (wording changes, forward-guidance phrase counts, dissents) over judgment features ("hawkish surprise"); they leak less and transfer better across models.
+- Pre-register the specification Track E picks (features, horizons, test statistic, alpha spent across indicators) in `config/preregistration.yaml`, committed before each event.
+- Bridge test: score post-June-2026 documents with both tracks; if feature rank correlation is at least 0.8, Track E informs Track C, otherwise label Track E a different instrument.
+- Score at ladder level (log loss of the implied distribution) and pool across indicators with event-clustered errors.
+- A documented cutoff is necessary but not sufficient; post-cutoff scoring is still exploratory.
+
+**`cutoff_guard`:**
+1. Registry `config/llm_cutoffs.yaml`: `model_id`, `cutoff_end`, source URL, `verified_on`. Unknown cutoff, timestamps or model revision fails closed.
+2. `safe_start = cutoff_end + 31 days` (2026-07-31 for the Claude models; use a 90-day margin for Llama, i.e. 2024-03-30).
+3. A row is **confirmatory** only if: `doc.available_ts > safe_start`, `event.release_ts > safe_start`, `score_ts < event.release_ts`, `model_id` equals the pinned model, `prompt_hash` is in the pre-registration file committed before the event, and external retrieval was disabled.
+4. All other rows are written with `confirmatory=false`.
+5. A material model or prompt change starts a new confirmatory series; never mix models within one test.
+
+Expected power: roughly 10 post-cutoff events so far and about 32 a year (12 CPI, 12 payrolls, 8 FOMC). The confirmatory H2 test is a 12-18 month collection horizon, not a guaranteed conclusion.
+
+## 8. Backtest and evaluation rules
+
+- Market-only calibrated baseline first (Brier, log loss, reliability), then the incremental out-of-sample effect.
+- Chronological splits grouped by release; strikes within a release are correlated. At each training cutoff include only labels already resolved; purge window around the cutoff.
 - Event-clustered errors; Holm correction across indicators.
-- Fill at captured bid/ask plus fees plus modeled latency; periods with no captured quotes are "indicative".
-- Exclude the final N hours before resolution; include voided/delisted contracts.
+- Fills use captured bid/ask plus fees plus modeled latency. Results from CSV-only periods (no quotes) are labelled **indicative, not executable**.
+- Include the incentive coupon in P&L; record the historical coupon rate.
+- Exclude the final N hours before resolution; include voided contracts.
 - Never use contract-rule versions that became valid after `as_of_ts`.
-- Small-sample warning: about 8 FOMC meetings and 12 CPI releases per year. Power is limited; say so in every report.
+- Small-sample warning in every report.
 
-## 8. Databricks design (new workspace)
+## 9. Databricks design (new workspace)
 
-Catalog `pm_macro`, schemas `bronze`, `silver`, `gold`, `ml`. Polars transforms, Spark I/O at the edges. Every row carries `data_source`, `ingest_ts`, `payload_hash`, `schema_ver` (bronze).
+Catalog `pm_macro`, schemas `bronze`, `silver`, `gold`, `ml`. Polars transforms, Spark I/O at the edges. Every row carries `data_source`, `ingest_ts`; bronze adds `payload_hash`, `schema_ver`.
 
-**Bronze (append-only, idempotent on source+endpoint+cursor):** `ibkr_contracts_raw`, `ibkr_quotes_raw`, `ibkr_trades_raw`, `fred_obs_raw`, `alfred_vintages_raw`, `release_calendar_raw`, `nowcast_raw`, `fed_docs_raw`, `gdelt_raw`.
+**Bronze (append-only, idempotent):** `forecastex_prices_raw`, `forecastex_pairs_raw`, `forecastex_summary_raw` (serverless job, no device needed); `ibkr_contracts_raw`, `ibkr_quotes_raw` (from the device); `fred_obs_raw`, `alfred_vintages_raw`, `release_calendar_raw`, `nowcast_raw`, `fed_docs_raw`, `gdelt_raw`.
 
-**Silver:** `contracts` (SCD2 on rules text), `quotes` (best bid/ask, depth), `trades`, `macro_events` (event_id, indicator, release_ts), `event_contract_map`, `first_prints`, `vintages` (series, obs_date, vintage_ts, value), `text_docs` (pub_ts, available_ts, ingest_ts), `text_scores`.
+**Silver:** `contracts` (SCD2 on rules), `quotes` (YES and NO legs, bid/ask, size, field semantics, stale flag), `trades`, `macro_events`, `event_contract_map`, `first_prints`, `vintages`, `text_docs` (pub_ts, available_ts, ingest_ts), `text_scores` (model_id, model_cutoff, prompt_ver, confirmatory flag).
 
-**Gold:** `implied_dist` (pmf + monotone_flag), `features_pit` (UC feature table, time-series key on `as_of_ts`), `labels` (separate), `preds`, `signal_eval`, `paper_orders`, `paper_positions`, `paper_pnl`.
+**Gold:** `implied_dist` (pmf + monotone_flag), `ladder_arb_flags`, `features_pit` (UC feature table, time-series key `as_of_ts`), `labels` (separate), `preds`, `signal_eval`, `paper_orders`, `paper_positions`, `paper_pnl`.
 
-**Jobs (Databricks bundle):** quote capture every 5 minutes; contract refresh hourly; FRED/ALFRED and Fed text daily; a pre-release burst around each calendar entry. No streaming in the MVP. Data-quality expectations: prices in [0,1], monotone timestamps, no quotes after resolution.
+**Capture on the owner's device:** `ib_async` against IB Gateway, both legs, rotating batches under the 100 market-data-line default every 5 minutes, 50 messages/second pacing. Local Parquet with `capture_ts` and `data_source="ibkr_tws"`, uploaded hourly to a UC Volume. Daily Gateway restart and periodic re-login (2FA; no unattended headless login) are expected: log heartbeats and mark known gaps.
 
-Note: IBKR's API needs a running TWS/IB Gateway session, so quote capture needs a small always-on host (not a serverless Databricks job). Where that host lives is an open decision (section 11).
+**Jobs (bundle):** ForecastEx CSV pulls daily; FRED/ALFRED and Fed text daily; pre-release burst around each calendar entry; no streaming in the MVP.
 
-## 9. Phases and gates
+## 10. Phases and gates
 
 | Phase | Weeks | Work | Gate |
 |---|---|---|---|
-| P0 | 1 | Verify IBKR facts (section 3); repo, bundle, catalog, secret scope, CI; start quote capture | 72h capture with no gaps; CI green; IBKR coverage documented |
-| P1 | 1-3 | **CPI only**: contracts, resolutions, ALFRED vintages, release calendar, first prints, Fed/BLS text | First-print labels match contract resolutions in 100% of cases; sample size recorded |
-| P2 | 3-5 | Market-only calibration, nowcast model, combined model | Point-in-time replay + leakage suite pass; baseline report merged |
-| P3 | 5-7 | LLM scoring vs simple classifier on Fed/BLS text | Improvement across indicators with clustered errors + Holm, or a published null result |
-| P4 | 7-12 | Extend to FOMC and payrolls; paper trading against captured books, minimum 6 weeks | Live capital requires a separate owner decision |
+| P0 | 1 | Repo, bundle, catalog, secret scope, CI. IBKR checks: eligibility, live quotes, paper orders, `reqHistoricalData`, fee convention. ForecastEx CSV audit (schemas, coverage, terms). Start both-leg quote capture. | CSV audit documented; 72h capture with no gaps; IBKR gates passed or fallback chosen |
+| P1 | 1-3 | CPI YoY pipeline: contracts, ALFRED CPIAUCNS, first prints, calendar, base-effect + nowcast inputs. FOMC data from CSVs. Analysis #1 (ladder scan) on history. | First-print labels match contract resolutions 100%; liquidity measured per strike |
+| P2 | 3-6 | FOMC calibration (H1), analysis #3 (Fed-path RV), CPI analysis #2, market-only baselines. Select Track C model on a labeled sample. | Leakage suite passes; baseline report merged |
+| P3 | 6-9 | Track E scoring over history, pre-registration, bridge test, Track C prospective scoring begins | Pre-registration committed; or null result written up |
+| P4 | 9-14+ | Payrolls; remaining analyses (#4-#7); paper trading against captured books, minimum 6 weeks. Cross-asset hedge only if free timestamped data and paper access are confirmed. | Live capital requires a separate owner decision |
 
-## 10. Repo layout
+## 11. Repo layout
 
 ```
 README.md  AGENTS.md  pyproject.toml  databricks.yml  .gitignore
 .github/workflows/ci.yml   .coderabbit.yaml
-config/  data_sources.py  indicators.yaml  llm_cutoffs.yaml  prompts/
+config/  data_sources.py  indicators.yaml  llm_cutoffs.yaml  preregistration.yaml  prompts/
 resources/jobs/*.yml
 src/pm_macro/
-  ingest/{ibkr,fred_alfred,fed_text,gdelt,calendar}.py
+  ingest/{forecastex_csv,ibkr_capture,fred_alfred,fed_text,gdelt,calendar}.py
   bronze/ silver/ gold/
   features/pit.py   labels/first_print.py
+  analysis/{ladder_arb,fed_path_rv,cpi_base_effect}.py
   llm/{score,cache,cutoff_guard}.py
   models/{calibration,nowcast,combined}.py
   backtest/{replay,fills,sizing,metrics}.py
@@ -117,16 +161,16 @@ tests/{unit,leakage,fixtures}/
 docs/{PLAN.md,data_licensing.md,decisions.md,findings/}
 ```
 
-CI: ruff, mypy, unit + leakage tests (`pytest -m "not spark and not databricks and not live"`), `databricks bundle validate`, and a check that fails on pandas imports or committed data files outside `tests/fixtures`. CI never needs licensed data and never places orders. Required leakage tests: a planted future-dated row is ignored by the feature builder; a revised vintage is not visible before its vintage time; `cutoff_guard` rejects pre-cutoff events.
+CI: ruff, mypy, unit + leakage tests (`pytest -m "not spark and not databricks and not live"`), `databricks bundle validate`, a check that fails on pandas imports or committed data files outside `tests/fixtures`. CI never needs licensed data and never places orders. Required leakage tests: planted future-dated row ignored; revised vintage not visible before its vintage time; `cutoff_guard` rejects pre-cutoff events and unknown cutoffs; confirmatory flag requires a pre-registered prompt hash.
 
-## 11. Open questions
+## 12. Open questions
 
-1. Which IBKR event contracts exist for CPI/FOMC/payrolls, and is there historical quote data? (Week 1)
-2. Where does the always-on IBKR Gateway/quote-capture process run (home machine, small cloud VM)?
-3. Is any paid consensus-forecast source available, or do we rely on nowcasts only?
-4. Which LLM, and what is its training cutoff? (Defines the exploratory window.)
-5. Databricks workspace URL, catalog permissions and a service identity for CI.
+1. IBKR P0 gates (section 3): eligibility, live quote cost, paper access to `FORECASTX`, historical bars, fee convention.
+2. ForecastEx CSV terms of use and schema/completeness audit.
+3. Do free delayed prices exist for a tradable rates hedge (ZQ/SOFR futures), or do cross-asset analyses stay measurement-only?
+4. Track C model choice (Opus vs Sonnet) and GPU budget for Track E on Databricks.
+5. Databricks workspace URL, catalog permissions and a service identity for CI (deferred by the owner).
 
-## 12. Key risks
+## 13. Key risks
 
-Thin books at far strikes; few resolved events; resolution-rule mismatch; memorized outcomes in LLMs; free nowcast terms of use; IBKR API/session reliability; limited historical data making early results indicative only.
+Thin books at far strikes and for CPI; few resolved events; fees of about $0.02 per round trip eating ladder gaps; stale or asynchronous quotes and legging; resolution-rule mismatch; LLM memorization and non-determinism; model retirement before the confirmatory study ends; flaky or restricted free data endpoints; IBKR Gateway session reliability; indicative-only results where no quote history exists.
