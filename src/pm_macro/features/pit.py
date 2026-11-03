@@ -13,18 +13,18 @@ def asof_latest(
     *,
     key: str,
     value_cols: list[str],
-    version_col: str | None = None,
 ) -> pl.DataFrame:
     """For each spine row (key, as_of_ts) attach the latest fact with available_ts <= as_of_ts.
 
-    ``facts`` must carry ``key``, ``available_ts`` and ``value_cols``. Facts with
-    available_ts later than as_of_ts are never visible; a fact with available_ts == as_of_ts is
-    visible (inclusive boundary). Output rows keep the spine's original order.
+    ``facts`` must carry ``key``, ``available_ts`` and ``value_cols``. Each fact (including every
+    revision/vintage of the same observation) must carry its OWN real availability timestamp;
+    this function never picks between versions, so a later revision can never be exposed at an
+    earlier as_of_ts. Facts with available_ts later than as_of_ts are never visible; a fact with
+    available_ts == as_of_ts is visible (inclusive boundary). Output rows keep the spine's order.
 
-    Ambiguity rules (all raise ``ValueError``):
-    - null ``key`` in spine or facts, null ``as_of_ts`` in spine, null ``available_ts`` in facts;
-    - two or more facts with the same (key, available_ts), unless ``version_col`` is supplied, in
-      which case the highest version wins; a tie on (key, available_ts, version) still raises.
+    Raises ``ValueError`` on: null ``key`` in spine or facts, null ``as_of_ts`` in spine, null
+    ``available_ts`` in facts, and any two facts sharing the same (key, available_ts). There is
+    no tie-break: ambiguity is always an error.
     """
     if spine[key].null_count() or facts[key].null_count():
         raise ValueError(f"null values in key column {key!r}")
@@ -33,28 +33,16 @@ def asof_latest(
     if facts["available_ts"].null_count():
         raise ValueError("null available_ts in facts")
 
-    cols = [key, "available_ts", *value_cols]
-    if version_col is not None and version_col not in cols:
-        cols.append(version_col)
-    right = facts.select(cols)
-
-    tie_cols = [key, "available_ts"] + ([version_col] if version_col else [])
-    dups = right.group_by(tie_cols).len().filter(pl.col("len") > 1)
+    right = facts.select([key, "available_ts", *value_cols])
+    dups = right.group_by([key, "available_ts"]).len().filter(pl.col("len") > 1)
     if dups.height:
         raise ValueError(
-            "ambiguous facts: duplicate "
-            f"{tie_cols} ({dups.height} groups), e.g. {dups.head(5).to_dicts()}"
-        )
-    if version_col is not None:
-        right = (
-            right.sort(version_col)
-            .group_by([key, "available_ts"], maintain_order=True)
-            .last()
-            .drop(version_col)
+            f"ambiguous facts: duplicate ({key}, available_ts) in {dups.height} groups, "
+            f"e.g. {dups.head(5).to_dicts()}"
         )
 
     left = spine.with_row_index(_IDX).sort("as_of_ts")
-    right = right.select([key, "available_ts", *value_cols]).sort("available_ts")
+    right = right.sort("available_ts")
     out = left.join_asof(
         right,
         left_on="as_of_ts",

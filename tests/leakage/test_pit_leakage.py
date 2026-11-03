@@ -61,23 +61,20 @@ def test_tied_timestamps_raise():
         asof_latest(spine, facts, key="k", value_cols=["v"])
 
 
-def test_tied_timestamps_resolved_by_version_column():
+def test_tied_timestamps_with_version_column_still_raise():
     spine = pl.DataFrame({"k": ["a"], "as_of_ts": [T(12)]})
     facts = pl.DataFrame(
         {"k": ["a", "a"], "available_ts": [T(10), T(10)], "v": [1.0, 2.0], "ver": [2, 1]}
     )
-    out = asof_latest(spine, facts, key="k", value_cols=["v"], version_col="ver")
-    assert out["v"][0] == 1.0  # ver=2 row wins (v=1.0)
-    assert "ver" not in out.columns
-
-
-def test_tied_timestamps_and_version_still_raise():
-    spine = pl.DataFrame({"k": ["a"], "as_of_ts": [T(12)]})
-    facts = pl.DataFrame(
-        {"k": ["a", "a"], "available_ts": [T(10), T(10)], "v": [1.0, 2.0], "ver": [1, 1]}
-    )
     with pytest.raises(ValueError, match="ambiguous"):
-        asof_latest(spine, facts, key="k", value_cols=["v"], version_col="ver")
+        asof_latest(spine, facts, key="k", value_cols=["v"])
+
+
+def test_version_col_argument_is_gone():
+    spine = pl.DataFrame({"k": ["a"], "as_of_ts": [T(12)]})
+    facts = pl.DataFrame({"k": ["a"], "available_ts": [T(10)], "v": [1.0]})
+    with pytest.raises(TypeError):
+        asof_latest(spine, facts, key="k", value_cols=["v"], version_col="ver")  # type: ignore[call-arg]
 
 
 def test_null_key_rejected_in_facts_and_spine():
