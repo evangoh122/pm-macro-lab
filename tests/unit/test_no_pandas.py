@@ -62,11 +62,22 @@ def test_detector_catches_all_forms():
         assert not pandas_uses(ok), ok
 
 
+def split_nul(raw: bytes) -> list[str]:
+    return [x.decode() for x in raw.split(b"\0") if x]
+
+
+def test_nul_split_keeps_spaces_and_non_ascii():
+    raw = "a b.py\0dir/é.py\0".encode()
+    assert split_nul(raw) == ["a b.py", "dir/é.py"]
+
+
 def _tracked_py() -> list[pathlib.Path]:
     try:
-        out = subprocess.run(
-            ["git", "-C", str(ROOT), "ls-files", "*.py"], capture_output=True, text=True, check=True
-        ).stdout.split()
+        out = split_nul(
+            subprocess.run(
+                ["git", "-C", str(ROOT), "ls-files", "-z", "*.py"], capture_output=True, check=True
+            ).stdout
+        )
         files = [ROOT / f for f in out]
     except (OSError, subprocess.CalledProcessError):
         files = [p for p in ROOT.rglob("*.py") if ".git" not in p.parts]

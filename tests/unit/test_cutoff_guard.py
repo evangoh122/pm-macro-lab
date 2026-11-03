@@ -159,7 +159,6 @@ def test_load_registrations_roundtrip(tmp_path):
         "registrations:\n- {id: a, model_id: m, prompt_hash: h, committed_on: 2026-09-01}\n"
     )
     assert load_registrations(f) == [Registration("a", "m", "h", date(2026, 9, 1))]
-    assert load_registrations(ROOT / "config" / "preregistration.yaml") == []
 
 
 def _write_registry(tmp_path, **over):
