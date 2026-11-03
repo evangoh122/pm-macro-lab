@@ -34,6 +34,7 @@ Rule for `synthetic_binaries`: take the meeting date from the FOMC calendar (ann
 ## Not verified (open)
 
 - ALFRED first-print depth for `PAYEMS` and release timestamps (needs an API key and network access from the build host).
+- First-print label rule: a first print is usable only if `available_ts <= label_ts` (08:30 ET release) is established from the release calendar or a first-observed record; an ALFRED vintage date alone is not proof. Otherwise the label is missing and excluded.
 - Cleveland Fed nowcast history start; ADP coverage on FRED; `DFF` and CME FedWatch free history.
 - FOMC calendar completeness 1994-2024 (about 248 scheduled meetings is an estimate).
 - Whether `NFCI` vintages exist (its history is revised).
