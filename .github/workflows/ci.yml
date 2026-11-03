@@ -3,12 +3,14 @@ on:
   pull_request:
   push:
     branches: [main]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }  # full history: prereg provenance reads git log
+        with: { fetch-depth: 0, persist-credentials: false }  # full history: prereg provenance reads git log
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
@@ -17,5 +19,5 @@ jobs:
       - run: pytest -m "not spark and not databricks and not live"
       - name: No committed data files outside fixtures
         run: |
-          bad=$(git ls-files | grep -iE '\.(csv|tsv|parquet|xlsx|xls|feather|arrow|pkl|pickle|db|sqlite|duckdb|jsonl|ndjson|orc|avro|h5|hdf5|npy|npz|dta|sav|json\.gz|csv\.gz|tsv\.gz|parquet\.gz|jsonl\.gz|ndjson\.gz|zip|tar|gz)$|(^|/)_delta_log/|(^|/)delta/' | grep -v '^tests/fixtures/' || true)
+          bad=$(git ls-files -z | grep -ziE '\.(csv|tsv|parquet|xlsx|xls|feather|arrow|pkl|pickle|db|sqlite|duckdb|jsonl|ndjson|orc|avro|h5|hdf5|npy|npz|dta|sav|json\.gz|csv\.gz|tsv\.gz|parquet\.gz|jsonl\.gz|ndjson\.gz|zip|tar|gz)$|(^|/)_delta_log/|(^|/)delta/' | grep -zv '^tests/fixtures/' | tr '\0' '\n' || true)
           if [ -n "$bad" ]; then echo "$bad"; exit 1; fi
