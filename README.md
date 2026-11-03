@@ -15,3 +15,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the thesis, decisions, data sources, Databr
 | P2 baseline models | not started |
 | P3 LLM signal | not started |
 | P4 paper trading, FOMC/payrolls | not started |
+
+## Website page
+
+[`site/PmMacroLab.tsx`](site/README.md) is the animated architecture diagram for the portfolio site, themed with the site's tokens.
