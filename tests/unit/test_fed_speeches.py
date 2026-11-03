@@ -6,7 +6,7 @@ RAW = '﻿[{"d":"10/8/2026 4:30:00 AM","t":"T","s":"Governor X","lo":"L","l":"/a
 
 
 def item(y, m, d, h=12):
-    return SpeechItem(datetime(y, m, d, h), "raw", "t", "s", "l", "/p")  # noqa: DTZ001
+    return SpeechItem(datetime(y, m, d, h), "raw", "t", "s", "l", "/p")
 
 
 def test_parse_skips_bad_rows_and_sorts():
@@ -16,7 +16,7 @@ def test_parse_skips_bad_rows_and_sorts():
 
 def test_parse_keeps_naive_local_and_raw_string():
     it = parse_feed(RAW)[0]
-    assert it.scheduled_local == datetime(2026, 10, 8, 4, 30)  # noqa: DTZ001
+    assert it.scheduled_local == datetime(2026, 10, 8, 4, 30)
     assert it.scheduled_local.tzinfo is None
     assert it.raw_d == "10/8/2026 4:30:00 AM"
 

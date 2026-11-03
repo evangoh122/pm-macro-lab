@@ -48,7 +48,7 @@ def parse_feed(raw: str) -> list[SpeechItem]:
     out: list[SpeechItem] = []
     for r in items:
         try:
-            ts = datetime.strptime(r["d"], "%m/%d/%Y %I:%M:%S %p")  # noqa: DTZ007 (naive by design)
+            ts = datetime.strptime(r["d"], "%m/%d/%Y %I:%M:%S %p")
         except (KeyError, ValueError):
             continue
         out.append(

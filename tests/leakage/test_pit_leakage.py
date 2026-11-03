@@ -5,7 +5,9 @@ import pytest
 
 from pm_macro.features.pit import asof_latest
 
-T = lambda h: datetime(2026, 9, 16, h, tzinfo=UTC)
+def T(h):
+    return datetime(2026, 9, 16, h, tzinfo=UTC)
+
 
 
 def test_future_dated_fact_is_invisible():

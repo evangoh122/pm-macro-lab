@@ -25,7 +25,7 @@ def T(m, d, h=0):
 
 
 def base(**kw):
-    args: dict = dict(  # noqa: C408
+    args: dict = dict(
         registry=REG,
         pinned_model_id="m",
         model_id="m",
@@ -93,7 +93,7 @@ def test_registration_without_verified_commit_ts_rejected():
 
 def test_naive_commit_ts_raises():
     with pytest.raises(CutoffGuardError):
-        is_confirmatory(**base(registration_commit_ts={"r1": datetime(2026, 9, 1)}))  # noqa: DTZ001
+        is_confirmatory(**base(registration_commit_ts={"r1": datetime(2026, 9, 1)}))
 
 
 def test_registration_wrong_model_rejected():
@@ -129,7 +129,7 @@ def test_missing_timestamp_fails_closed():
 
 
 def test_naive_timestamp_raises():
-    naive = datetime(2026, 9, 1)  # noqa: DTZ001  (deliberately naive: asserts the guard rejects it)
+    naive = datetime(2026, 9, 1)
     with pytest.raises(CutoffGuardError):
         is_confirmatory(**base(doc_available_ts=naive))
 
