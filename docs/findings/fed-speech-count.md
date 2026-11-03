@@ -2,6 +2,15 @@
 
 Source: `https://www.federalreserve.gov/json/ne-speeches.json` (Board feed; 1,349 items back to 2008-11).
 
+**Single-run numbers (2026-10-30), reproduce with `scripts/count_fed_speeches.py`:**
+
+```
+curl -sSL -o /tmp/ne-speeches.json https://www.federalreserve.gov/json/ne-speeches.json
+python3 -I scripts/count_fed_speeches.py /tmp/ne-speeches.json   # prints the "since 2024-08-01" count
+```
+
+The script reproduces only the 226 total (and the item count); the blackout, keyword-filter and by-speaker figures below came from ad-hoc one-off analysis that is not yet scripted, and the feed itself changes as new speeches are added, so later runs will differ.
+
 Since 2024-08-01 (to 2026-10-14):
 
 | Measure | Count |

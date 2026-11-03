@@ -24,3 +24,5 @@ ruff check . && pytest -m "not spark and not databricks and not live"
 ```
 
 Findings so far: [Fed speech count](docs/findings/fed-speech-count.md).
+
+Review fixes (Sol round 1): `cutoff_guard` now requires a verified registry entry, a matching pre-registration committed before the event, `doc_available_ts <= score_ts < event_release_ts` and explicit `external_retrieval=False`; the Fed speech feed time is kept naive/unverified with a conservative New York availability fallback; `asof_latest` rejects null keys and tied facts; CI data-file and no-pandas checks are broader; the P2b label rule is bounded to 3 days.

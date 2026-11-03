@@ -2,7 +2,9 @@
 
 Method: FRED connector metadata and small observation pulls. The direct FRED/ALFRED hosts were unreachable from the dev shell (HTTP 000/timeouts) and no FRED API key is configured, so **ALFRED vintage depth and first-print availability were NOT verified**.
 
-## Coverage (verified)
+## Coverage (verified, single-run)
+
+Single-run numbers from 2026-10-30; not yet reproducible by a script. To re-check, query each series' metadata and observation range through the FRED connector or the public series page `https://fred.stlouisfed.org/series/<SERIES_ID>` (for example `https://fred.stlouisfed.org/series/DFEDTARU`) and compare start/end dates. A reproducing script (`scripts/check_fred_coverage.py`, needs the FRED API key) is a P1 to-do. The end dates move daily; the start dates should not.
 
 | Series | Start | End (at check) | Notes |
 |---|---|---|---|
@@ -27,7 +29,7 @@ All series needed for hypotheses #1-#10 exist back to at least 1994 except `DTB4
 
 FRED target series are dated by **effective date**, not announcement date. Example: the 2022 hike was announced 2022-03-16 at 14:00 ET, but `DFEDTARU` shows 0.25 on 03-15 and 03-16 and 0.50 from **03-17**. In the 1994 sample the change shows on 1994-02-04, the meeting day, because effectiveness was same-day then.
 
-Rule for `synthetic_binaries`: take the meeting date from the FOMC calendar (announcement date), set `label_ts` = 14:00 ET that day, define the outcome as the target in effect on the **next calendar day after the announcement** (or the first date at which the change shows), and the pre-state as the target on the day before the announcement. Reconcile against the statement text for a sample of meetings. Never read the target at `announcement date` and call it post-decision.
+Rule for `synthetic_binaries`: take the meeting date from the FOMC calendar (announcement date), set `label_ts` = 14:00 ET that day, define the outcome as the target in effect on the **next calendar day after the announcement**, bounded to at most 3 calendar days after the announcement and reconciled with the statement text; never search beyond that window (searching for "the first date the change shows" could pick up a later meeting's decision after a hold), and the pre-state as the target on the day before the announcement. Reconcile against the statement text for a sample of meetings. Never read the target at `announcement date` and call it post-decision.
 
 ## Not verified (open)
 
