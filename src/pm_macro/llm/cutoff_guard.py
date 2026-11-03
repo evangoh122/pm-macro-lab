@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from pm_macro.llm.prereg_provenance import Material, material_key, registration_commit_ts
+
 
 class CutoffGuardError(ValueError):
     """Raised when the registry is unusable for the requested model."""
@@ -51,6 +53,10 @@ class Registration:
     model_id: str
     prompt_hash: str
     committed_on: date | None = None
+    primary_hypothesis: str | None = None  # material: part of the frozen spec
+
+    def material(self) -> Material:
+        return material_key(self.id, self.model_id, self.prompt_hash, self.primary_hypothesis)
 
 
 def _as_date(v: Any, field: str) -> date | None:
@@ -105,8 +111,36 @@ def load_registrations(path: str | Path) -> list[Registration]:
                 str(r["model_id"]),
                 str(r["prompt_hash"]),
                 _as_date(r.get("committed_on"), "committed_on"),
+                None if r.get("primary_hypothesis") is None else str(r["primary_hypothesis"]),
             )
         )
+    return out
+
+
+def verified_registration_map(
+    repo_root: str | Path,
+    registrations: Sequence[Registration],
+    verified_ref: str = "HEAD",
+) -> dict[str, datetime]:
+    """id -> git-verified UTC commit instant, for registrations whose exact content is provable.
+
+    Registrations with no provable provenance on ``verified_ref`` (edited, re-added, side-branch,
+    shallow clone, git failure) are omitted, so the guard rejects them. Duplicate ids with
+    different material content are all omitted.
+    """
+    seen: dict[str, Material] = {}
+    conflicts: set[str] = set()
+    for r in registrations:
+        if r.id in seen and seen[r.id] != r.material():
+            conflicts.add(r.id)
+        seen[r.id] = r.material()
+    out: dict[str, datetime] = {}
+    for r in registrations:
+        if r.id in conflicts:
+            continue
+        ts = registration_commit_ts(repo_root, r, verified_ref)
+        if ts is not None:
+            out[r.id] = ts
     return out
 
 
@@ -142,7 +176,11 @@ def is_confirmatory(
     Conditions: pinned model; registry entry with source and verified_on; document and event
     after the cutoff safe start; doc_available_ts <= score_ts < event_release_ts; a registration
     for this exact (model_id, prompt_hash) whose git-verified commit timestamp
-    (``registration_commit_ts[id]``, tz-aware) is strictly before ``event_release_ts``; the YAML
+    (``registration_commit_ts[id]``, tz-aware) is strictly before ``event_release_ts``. The
+    comparison is on the full UTC INSTANT, not the date: a same-day commit earlier in time counts,
+    a same-day commit at or after the event instant does not. Production callers MUST obtain
+    ``registration_commit_ts`` only from ``verified_registration_map`` (this function is pure and
+    trusts the mapping it is given). The YAML
     ``committed_on`` is ignored, and a registration without a verified commit ts never counts;
     and external_retrieval explicitly False (None or any other value fails).
     """
