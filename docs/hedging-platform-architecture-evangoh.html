@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hedging Platform Architecture · evangoh.com theme</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+<style>
+/* Layout from Cocoon AI architecture-diagram (MIT), recoloured to the evangoh.com theme: near-black ground #090a0c, grid, semantic component colours, JetBrains Mono. */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--speed:1;color-scheme:dark}
+body{font-family:Geist,'Segoe UI Variable','SF Pro Display',system-ui,-apple-system,sans-serif;background:#090a0c;min-height:100vh;padding:2rem;color:#f3f1ea}
+.container{max-width:1200px;margin:0 auto}
+.header{margin-bottom:1.25rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#d6b65a;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+h1{font-size:1.5rem;font-weight:700;letter-spacing:-.025em;text-wrap:balance}
+.subtitle{color:#b8bdc5;font-size:.875rem;margin-left:1.75rem;line-height:1.5}
+
+.toolbar{display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#818791;cursor:pointer;font-size:1.25rem;line-height:1;padding:.25rem .5rem;border-radius:.375rem;transition:color .2s,background .2s;font-family:inherit}
+.toolbar-toggle:hover{color:#b8bdc5;background:rgba(24,27,32,.6)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+button.btn,.toolbar-actions button{background:rgba(24,27,32,.9);border:1px solid #32363d;color:#b8bdc5;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap;min-height:32px}
+button.btn:hover,.toolbar-actions button:hover{background:rgba(50,54,61,.9);color:#f3f1ea;border-color:#818791}
+button:focus-visible,input:focus-visible,.node:focus-visible{outline:2px solid #d6b65a;outline-offset:3px}
+
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.25rem;margin-bottom:1rem}
+.controls label{display:flex;align-items:center;gap:.6rem;font-size:.75rem;color:#b8bdc5}
+input[type=range]{width:140px;accent-color:#d6b65a}
+output{font-size:.75rem;color:#f3f1ea;min-width:3.6em}
+#status{font-size:.72rem;color:#818791}
+
+.diagram-container{position:relative;background:rgba(17,19,23,.75);border-radius:1rem;border:1px solid #22262c;padding:1.5rem;overflow-x:auto}
+svg#diagram{width:100%;min-width:960px;display:block}
+.node{cursor:pointer;transition:opacity .15s}
+.edge{transition:opacity .15s}
+.hit{fill:none;stroke:transparent;stroke-width:18;pointer-events:stroke;cursor:pointer}
+.has-focus .node:not(.rel),.has-focus .edge:not(.rel){opacity:.2}
+.node.rel rect.box{stroke-width:2.2}
+.edge.rel path.line{stroke-width:2.6;stroke-opacity:1}
+svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
+.flow{animation:dash calc(.9s / var(--speed,1)) linear infinite}
+@keyframes dash{to{stroke-dashoffset:-9}}
+.paused .flow{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.flow,.pulse-dot{animation:none}}
+.hint{display:none;font-size:.7rem;color:#818791;margin-top:.5rem}
+@media (max-width:1010px){.hint{display:block}}
+#tip{position:absolute;z-index:3;max-width:290px;padding:.55rem .7rem;border-radius:.4rem;background:#090a0c;border:1px solid #32363d;font-size:.72rem;line-height:1.5;color:#b8bdc5;pointer-events:none;opacity:0;transition:opacity .1s}
+#tip b{display:block;color:#f3f1ea;font-weight:600;margin-bottom:2px}
+#tip.on{opacity:1}
+
+.card,.panel{background:rgba(17,19,23,.75);border-radius:.75rem;border:1px solid #22262c;padding:1.25rem}
+.panel{margin-top:1rem;min-height:150px;display:grid;gap:.6rem;align-content:start}
+.panel h2{font-size:.95rem;font-weight:600}
+.panel .tag{font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:#818791}
+.panel p{font-size:.78rem;line-height:1.65;color:#b8bdc5;max-width:90ch}
+.links{display:flex;flex-wrap:wrap;gap:.3rem 1.5rem;font-size:.72rem;color:#818791}
+.links b{color:#f3f1ea;font-weight:500}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-top:1rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.cyan{background:#6f8fb8}.card-dot.emerald{background:#7fbfae}.card-dot.violet{background:#d6b65a}.card-dot.amber{background:#f1d77a}.card-dot.orange{background:#e09a4a}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#b8bdc5;font-size:.75rem}
+.card li{margin-bottom:.375rem;line-height:1.5}
+.footer{text-align:center;margin-top:1.5rem;color:#818791;font-size:.75rem;line-height:1.6}
+#svgBox{display:none;margin-top:1rem;gap:.5rem}
+#svgBox.on{display:grid}
+#svgBox textarea{width:100%;height:140px;background:#090a0c;color:#b8bdc5;border:1px solid #32363d;border-radius:.5rem;font:.7rem 'JetBrains Mono','SF Mono','Geist Mono','Fira Code',ui-monospace,monospace;padding:.6rem}
+#svgBox div{display:flex;gap:.75rem;align-items:center;font-size:.72rem;color:#818791}
+@media print{body{background:#090a0c;padding:1rem}.toolbar,.controls{display:none!important}}
+.panel .tag,output,#status,.hint,.links,.footer,#svgBox div{font-family:'JetBrains Mono','SF Mono','Geist Mono','Fira Code',ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>Prediction Market Hedging Platform Architecture</h1>
+      <div class="toolbar">
+        <div class="toolbar-actions">
+          <button type="button" id="copySvg">📋 Copy SVG</button>
+          <button type="button" id="copyPng">🖼️ Copy PNG</button>
+        </div>
+        <button class="toolbar-toggle" type="button" id="tbToggle" title="Export options" aria-label="Export options">⋯</button>
+      </div>
+    </div>
+    <p class="subtitle">Three data providers flow through a Databricks Delta lakehouse and a backtesting engine to a research dashboard. Hover, focus or tap any component or arrow.</p>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="toggle" type="button" aria-pressed="false">⏸ Pause</button>
+    <label for="speed">Speed
+      <input id="speed" type="range" min="0.25" max="3" step="0.25" value="1">
+      <output id="speedOut" for="speed">1.00×</output>
+    </label>
+    <span id="status" role="status" aria-live="polite"></span>
+  </div>
+
+  <div class="diagram-container" id="stage">
+    <svg id="diagram" viewBox="0 0 1290 580" xmlns="http://www.w3.org/2000/svg" font-family="Geist, Segoe UI Variable, SF Pro Display, system-ui, sans-serif" role="img" aria-label="Architecture diagram. Polygon, IBKR and FRED feed three ingestion modules, which write to Bronze, Silver and Gold Delta tables. Gold feeds the backtesting engine, then risk analytics, FastAPI and the React dashboard."></svg>
+    <div id="tip" role="tooltip"></div>
+  </div>
+  <p class="hint">Scroll the diagram sideways to see all of it.</p>
+
+  <section class="panel" id="panel" aria-live="polite"></section>
+
+  <section id="svgBox" aria-label="SVG source">
+    <textarea id="svgText" readonly></textarea>
+    <div><button class="btn" id="svgClose" type="button">Close</button><span>Clipboard access was blocked. Select all, then copy.</span></div>
+  </section>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-header"><div class="card-dot cyan"></div><h3>Data sources</h3></div>
+      <ul>
+        <li>• Polygon / Massive: TLT bars, options, volatility</li>
+        <li>• IBKR ForecastTrader: event-contract quotes</li>
+        <li>• FRED / ALFRED: macro series and vintages</li>
+        <li>• Federal Reserve: FOMC calendar and outcomes</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot violet"></div><h3>Lakehouse layers</h3></div>
+      <ul>
+        <li>• Bronze: raw responses with timestamps</li>
+        <li>• Silver: normalized prices, quotes, events</li>
+        <li>• Gold: point-in-time research datasets</li>
+        <li>• Signal time kept apart from execution time</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot orange"></div><h3>Strategies compared</h3></div>
+      <ul>
+        <li>• Long TLT, unhedged</li>
+        <li>• Long TLT + protective put or put spread</li>
+        <li>• Long TLT + IBKR YES contract on a Fed hike</li>
+        <li>• Long TLT + options and event contracts combined</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">Prediction Market Hedging Research Platform • read-only data access • animation shows architecture, not live API traffic<br>Layout follows the Cocoon AI architecture-diagram skill (MIT); colours match evangoh.com</p>
+</div>
+
+<script>
+(function(){
+  var NS = 'http://www.w3.org/2000/svg';
+  var P = {
+    slate:  {f:'rgba(24, 27, 32, 0.8)',  s:'#b8bdc5'},
+    emerald:{f:'rgba(127, 191, 174, 0.12)',   s:'#7fbfae'},
+    violet: {f:'rgba(214, 182, 90, 0.14)', s:'#d6b65a'},
+    orange: {f:'rgba(224, 154, 74, 0.14)',s:'#e09a4a'},
+    cyan:   {f:'rgba(111, 143, 184, 0.14)',   s:'#6f8fb8'}
+  };
+
+  var nodes = [
+    {id:'polygon',x:30,y:80,w:190,h:76,c:'slate',group:'Source',title:'Polygon / Massive',sub:['TLT OHLCV, options chains','volatility, contract data'],
+     desc:'Supplies TLT OHLCV bars, historical options prices, volatility and contract metadata. This is underlying ETF and options data only. No prediction-market data comes from here.'},
+    {id:'ibkr',x:30,y:200,w:190,h:76,c:'slate',group:'Source',title:'IBKR ForecastTrader',sub:['event contracts, YES/NO','quotes, settlement terms'],
+     desc:'The source of prediction-market data: contracts, YES/NO quotes, event probabilities and settlement terms. Full pricing history after expiry is not assumed, so quotes are captured going forward. Access is read-only.'},
+    {id:'fred',x:30,y:320,w:190,h:76,c:'slate',group:'Source',title:'FRED / ALFRED',sub:['fed funds, rates, vintages','FOMC calendar + outcomes'],
+     desc:'Federal funds rate, interest rates and macro indicators, with ALFRED vintages so each revision is tied to when it became known. FOMC calendars and outcomes from the Federal Reserve verify that events actually happened.'},
+
+    {id:'mkt',x:290,y:80,w:230,h:76,c:'emerald',group:'Ingestion',title:'Market Data Ingestion',sub:['backfill + scheduled increments','retries, rate limits, dedup'],
+     desc:'Python module for historical backfills and scheduled incremental pulls. Handles authentication, pagination, retries and rate limits, and writes source metadata and ingestion logs.'},
+    {id:'pm',x:290,y:200,w:230,h:76,c:'emerald',group:'Ingestion',title:'Prediction Market Ingestion',sub:['timestamped quote capture','prospective, never backfilled'],
+     desc:'Captures event-contract quotes with timestamps as they happen, because full history may not exist after contracts expire. Observed data stays labelled apart from reconstructed or simulated data.'},
+    {id:'macro',x:290,y:320,w:230,h:76,c:'emerald',group:'Ingestion',title:'Macro Data Ingestion',sub:['vintage-aware series pulls','publication dates preserved'],
+     desc:'Pulls FRED/ALFRED series with vintage dates and records FOMC events. Keeping publication dates means later revisions cannot leak into earlier periods.'},
+
+    {id:'bronze',x:604,y:200,w:170,h:76,c:'violet',group:'Lakehouse · Bronze',title:'Bronze',sub:['raw API responses,','timestamps + metadata'],
+     desc:'Delta tables holding raw API responses exactly as received, with ingestion timestamps and source metadata. Duplicate detection and failure recovery apply at this layer.'},
+    {id:'silver',x:834,y:200,w:170,h:76,c:'violet',group:'Lakehouse · Silver',title:'Silver',sub:['normalized prices,','quotes, FOMC, macro'],
+     desc:'Normalized ETF prices, options quotes, prediction-market contracts, FOMC events and macro observations. Market calendars and contract expiry and settlement timestamps are handled here.'},
+    {id:'gold',x:1064,y:200,w:170,h:76,c:'violet',group:'Lakehouse · Gold',title:'Gold',sub:['point-in-time data,','no look-ahead bias'],
+     desc:'Research-ready datasets joining ETF returns, option prices, event probabilities and macro features. Every observation keeps the time it became available, and signal time is kept separate from execution time.'},
+
+    {id:'backtest',x:1064,y:420,w:170,h:76,c:'orange',group:'Research',title:'Backtesting Engine',sub:['4 TLT hedge strategies','realistic exec costs'],
+     desc:'Modular Python engine comparing four strategies: unhedged TLT, a protective put or put spread, an IBKR YES contract on a Fed hike, and a combination. Models spreads, premiums, commissions, slippage and liquidity, and settles contracts by verified event rules. A quoted probability is never treated as an executable price.'},
+    {id:'risk',x:834,y:420,w:170,h:76,c:'orange',group:'Research',title:'Risk Analytics',sub:['drawdown, VaR, CVaR','hedge cost, basis risk'],
+     desc:'Returns, volatility, Sharpe, maximum drawdown, VaR and CVaR, hedge cost and effectiveness, portfolio loss reduction, event payout versus actual ETF move, basis risk, capital efficiency and sensitivity to transaction costs.'},
+    {id:'api',x:604,y:420,w:170,h:76,c:'emerald',group:'Serving',title:'FastAPI',sub:['research endpoints','read-only access'],
+     desc:'Serves research results through FastAPI endpoints with source attribution. Market-data access is read-only, and live trading or order submission is out of scope for the first version.'},
+    {id:'ui',x:374,y:420,w:170,h:76,c:'cyan',group:'Serving',title:'React Dashboard',sub:['5-section workbench','strategies + provenance'],
+     desc:'Quantitative workbench in React and Tailwind CSS with five sections: Research Overview, Strategy Builder, Backtest Comparison, Basis Risk Analysis, and Data Quality and Provenance (observed, simulated or illustrative).'}
+  ];
+  var byId = {}; nodes.forEach(function(n){byId[n.id]=n; n.cx=n.x+n.w/2; n.cy=n.y+n.h/2;});
+
+  var edges = [
+    {id:'e1',from:'polygon',to:'mkt',d:'M220,118 L290,118',label:'REST',lx:255,ly:111,desc:'Market data requests: TLT bars, options chains and contract metadata, backfilled and then pulled on a schedule.'},
+    {id:'e2',from:'ibkr',to:'pm',d:'M220,238 L290,238',label:'quotes',lx:255,ly:231,desc:'YES/NO quotes, probabilities and settlement terms for event contracts, polled with timestamps.'},
+    {id:'e3',from:'fred',to:'macro',d:'M220,358 L290,358',label:'series',lx:255,ly:351,desc:'Macro series and their vintages, plus FOMC calendar and outcome data for event verification.'},
+    {id:'e4',from:'mkt',to:'bronze',d:'M520,118 C562,118 562,238 604,238',label:'',desc:'Raw market-data responses land in Bronze with timestamps and source metadata.'},
+    {id:'e5',from:'pm',to:'bronze',d:'M520,238 L604,238',label:'append',lx:562,ly:231,desc:'Timestamped prediction-market quotes are appended to Bronze. Prior quotes are never overwritten.'},
+    {id:'e6',from:'macro',to:'bronze',d:'M520,358 C562,358 562,238 604,238',label:'',desc:'Macro observations and FOMC events land in Bronze with their vintage and publication dates.'},
+    {id:'e7',from:'bronze',to:'silver',d:'M774,238 L834,238',label:'clean',lx:804,ly:231,desc:'Raw records are validated, de-duplicated and normalized into typed tables.'},
+    {id:'e8',from:'silver',to:'gold',d:'M1004,238 L1064,238',label:'join',lx:1034,ly:231,desc:'Silver tables are joined point in time, so each row uses only data available at that moment.'},
+    {id:'e9',from:'gold',to:'backtest',d:'M1149,276 L1149,420',label:'features',lx:1159,ly:352,anchor:'start',desc:'Point-in-time ETF returns, option prices, event probabilities and macro features feed the strategies.'},
+    {id:'e10',from:'backtest',to:'risk',d:'M1064,458 L1004,458',label:'paths',lx:1034,ly:451,desc:'Portfolio paths for each of the four strategies pass to the risk calculations.'},
+    {id:'e11',from:'risk',to:'api',d:'M834,458 L774,458',label:'metrics',lx:804,ly:451,desc:'Computed risk and hedge-effectiveness metrics are exposed through the API.'},
+    {id:'e12',from:'api',to:'ui',d:'M604,458 L544,458',label:'JSON',lx:574,ly:451,desc:'The dashboard reads research results over HTTP as JSON.'}
+  ];
+  edges.forEach(function(e){e.c = byId[e.from].c; e.title = byId[e.from].title+' → '+byId[e.to].title;});
+
+  var svg = document.getElementById('diagram');
+  function mk(name, attrs, parent, text){
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  var defs = mk('defs', {}, svg);
+  Object.keys(P).forEach(function(k){
+    var m = mk('marker', {id:'ah-'+k, markerWidth:10, markerHeight:7, refX:9, refY:3.5, orient:'auto', markerUnits:'userSpaceOnUse'}, defs);
+    mk('polygon', {points:'0 0, 10 3.5, 0 7', fill:P[k].s}, m);
+  });
+  var pat = mk('pattern', {id:'grid', width:40, height:40, patternUnits:'userSpaceOnUse'}, defs);
+  mk('path', {d:'M 40 0 L 0 0 0 40', fill:'none', stroke:'#22262c', 'stroke-width':.5}, pat);
+
+  mk('rect', {width:1290, height:580, fill:'#090a0c'}, svg);
+  mk('rect', {width:1290, height:580, fill:'url(#grid)'}, svg);
+
+  function lab(x,y,t,col,anchor){ return mk('text',{x:x,y:y,fill:col||'#b8bdc5','font-size':8,'letter-spacing':'0.6','text-anchor':anchor||'start'},svg,t); }
+  lab(30,66,'SOURCES');
+  lab(290,66,'INGESTION · PYTHON');
+  lab(374,410,'RESEARCH AND SERVING · PYTHON · FASTAPI · REACT');
+
+  // Lakehouse boundary (region style: dashed amber, rx 12)
+  mk('rect',{x:584,y:160,width:670,height:140,rx:12,fill:'rgba(241, 215, 122, 0.05)',stroke:'#f1d77a','stroke-width':1,'stroke-dasharray':'8,4'},svg);
+  mk('text',{x:596,y:178,fill:'#f1d77a','font-size':10,'font-weight':600},svg,'Databricks Lakehouse · Delta Lake');
+
+  // Note under sources
+  mk('rect',{x:30,y:420,width:300,height:76,rx:6,fill:'transparent',stroke:'#22262c','stroke-width':1},svg);
+  mk('text',{x:44,y:444,fill:'#f3f1ea','font-size':9,'font-weight':600},svg,'Reading the motion');
+  mk('text',{x:44,y:462,fill:'#b8bdc5','font-size':8},svg,'Moving dots are batches of records.');
+  mk('text',{x:44,y:476,fill:'#b8bdc5','font-size':8},svg,'Animation shows architecture,');
+  mk('text',{x:44,y:488,fill:'#b8bdc5','font-size':8},svg,'not live API traffic.');
+
+  // Edges first so boxes paint over them
+  var edgeEls = {};
+  edges.forEach(function(e){
+    var g = mk('g',{'class':'edge','data-id':e.id}, svg);
+    var line = mk('path',{'class':'line flow',d:e.d,fill:'none',stroke:P[e.c].s,'stroke-width':1.5,'stroke-opacity':.75,'stroke-dasharray':'5,4','marker-end':'url(#ah-'+e.c+')'}, g);
+    mk('path',{'class':'hit',d:e.d}, g);
+    if (e.label) mk('text',{x:e.lx,y:e.ly,'text-anchor':e.anchor||'middle',fill:'#b8bdc5','font-size':8,'font-family':"JetBrains Mono, ui-monospace, monospace"}, g, e.label);
+    e.line = line; e.g = g; e.len = line.getTotalLength();
+    e.parts = [];
+    var n = Math.max(2, Math.round(e.len/75));
+    for (var i=0;i<n;i++){
+      var p = mk('circle',{'class':'p',r:3,fill:P[e.c].s}, g);
+      e.parts.push({el:p, t:i/n});
+    }
+    edgeEls[e.id] = e;
+  });
+
+  var nodeEls = {};
+  nodes.forEach(function(n){
+    var g = mk('g',{'class':'node','data-id':n.id,tabindex:0,role:'button','aria-label':n.title+'. '+n.desc.split('. ')[0]}, svg);
+    mk('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:6,fill:'#111317'}, g); // opaque mask behind translucent fill
+    mk('rect',{'class':'box',x:n.x,y:n.y,width:n.w,height:n.h,rx:6,fill:P[n.c].f,stroke:P[n.c].s,'stroke-width':1.5}, g);
+    mk('text',{x:n.cx,y:n.y+28,fill:'#f3f1ea','font-size':11,'font-weight':600,'text-anchor':'middle'}, g, n.title);
+    n.sub.forEach(function(s,i){
+      mk('text',{x:n.cx,y:n.y+47+i*14,fill:'#b8bdc5','font-size':9,'text-anchor':'middle'}, g, s);
+    });
+    n.g = g; nodeEls[n.id] = n;
+  });
+
+  // Legend, placed below every boundary
+  var lx = 30, ly = 548;
+  mk('text',{x:lx,y:ly+8,fill:'#f3f1ea','font-size':10,'font-weight':600},svg,'Legend');
+  lx += 70;
+  [['slate','Source'],['emerald','Ingestion / API'],['violet','Lakehouse table'],['orange','Research compute'],['cyan','Frontend']].forEach(function(it){
+    mk('rect',{x:lx,y:ly,width:16,height:10,rx:2,fill:P[it[0]].f,stroke:P[it[0]].s,'stroke-width':1},svg);
+    mk('text',{x:lx+22,y:ly+8,fill:'#b8bdc5','font-size':8},svg,it[1]);
+    lx += 22 + it[1].length*4.9 + 26;
+  });
+  mk('line',{x1:lx,y1:ly+5,x2:lx+16,y2:ly+5,stroke:'#b8bdc5','stroke-width':1.5,'stroke-dasharray':'5,4'},svg);
+  mk('text',{x:lx+22,y:ly+8,fill:'#b8bdc5','font-size':8},svg,'Data flow'); lx += 22 + 9*4.9 + 26;
+  mk('rect',{x:lx,y:ly,width:16,height:10,rx:2,fill:'rgba(241, 215, 122, 0.05)',stroke:'#f1d77a','stroke-width':1,'stroke-dasharray':'3,3'},svg);
+  mk('text',{x:lx+22,y:ly+8,fill:'#b8bdc5','font-size':8},svg,'Lakehouse boundary');
+
+  // ---------- Animation ----------
+  var root = document.getElementById('report-container');
+  var toggle = document.getElementById('toggle');
+  var speedIn = document.getElementById('speed');
+  var speedOut = document.getElementById('speedOut');
+  var statusEl = document.getElementById('status');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var paused = !!reduce, speed = 1, last = null, PX_PER_SEC = 70;
+
+  function place(){
+    edges.forEach(function(e){
+      e.parts.forEach(function(p){
+        var pt = e.line.getPointAtLength(((p.t%1)+1)%1 * e.len);
+        p.el.setAttribute('cx', pt.x.toFixed(1));
+        p.el.setAttribute('cy', pt.y.toFixed(1));
+      });
+    });
+  }
+  function frame(ts){
+    if (last == null) last = ts;
+    var dt = Math.min(0.05, (ts-last)/1000); last = ts;
+    if (!paused){
+      edges.forEach(function(e){
+        var dtp = PX_PER_SEC*speed*dt/e.len;
+        e.parts.forEach(function(p){ p.t = (p.t + dtp) % 1; });
+      });
+      place();
+    }
+    requestAnimationFrame(frame);
+  }
+  function setPaused(v){
+    paused = v;
+    root.classList.toggle('paused', v);
+    toggle.textContent = v ? '▶ Resume' : '⏸ Pause';
+    toggle.setAttribute('aria-pressed', v ? 'true' : 'false');
+  }
+  toggle.addEventListener('click', function(){ setPaused(!paused); });
+  speedIn.addEventListener('input', function(){
+    speed = parseFloat(speedIn.value);
+    root.style.setProperty('--speed', speed);
+    speedOut.textContent = speed.toFixed(2)+'×';
+  });
+  setPaused(paused);
+  if (reduce) statusEl.textContent = 'Reduced motion is on, so animation starts paused.';
+  place();
+  requestAnimationFrame(frame);
+
+  // ---------- Focus, tooltip, detail panel ----------
+  var panel = document.getElementById('panel');
+  var tip = document.getElementById('tip');
+  var stage = document.getElementById('stage');
+  var selected = null, hovered = null;
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function names(ids){ return ids.length ? ids.map(function(i){return '<b>'+esc(byId[i].title)+'</b>';}).join(', ') : 'none'; }
+
+  function describe(key){
+    if (!key){
+      panel.innerHTML = '<span class="tag">Overview</span><h2>Three providers, one point-in-time lakehouse</h2>'+
+        '<p>Polygon/Massive supplies ETF and options data, IBKR supplies prediction-market quotes, and FRED/ALFRED supplies macro series. Each has its own ingestion module. Everything lands raw in Bronze, is normalized in Silver, and becomes research-ready, point-in-time data in Gold. The backtesting engine compares four TLT hedge strategies, risk analytics measures them, and FastAPI serves the results to the React dashboard.</p>'+
+        '<div class="links"><span>Select a component to see what it receives and sends.</span></div>';
+      return;
+    }
+    if (nodeEls[key]){
+      var n = nodeEls[key];
+      var ins = edges.filter(function(e){return e.to===key;}).map(function(e){return e.from;});
+      var outs = edges.filter(function(e){return e.from===key;}).map(function(e){return e.to;});
+      panel.innerHTML = '<span class="tag">'+esc(n.group)+'</span><h2>'+esc(n.title)+'</h2><p>'+esc(n.desc)+'</p>'+
+        '<div class="links"><span>Receives from: '+names(ins)+'</span><span>Sends to: '+names(outs)+'</span></div>';
+    } else {
+      var e = edgeEls[key];
+      panel.innerHTML = '<span class="tag">Data flow</span><h2>'+esc(e.title)+'</h2><p>'+esc(e.desc)+'</p>';
+    }
+  }
+  function applyFocus(){
+    var key = hovered || selected;
+    svg.classList.toggle('has-focus', !!key);
+    var relN = {}, relE = {};
+    if (key){
+      if (nodeEls[key]){ relN[key]=1; edges.forEach(function(e){ if(e.from===key||e.to===key){relE[e.id]=1;relN[e.from]=1;relN[e.to]=1;} }); }
+      else { var e = edgeEls[key]; relE[key]=1; relN[e.from]=1; relN[e.to]=1; }
+    }
+    nodes.forEach(function(n){ n.g.classList.toggle('rel', !!relN[n.id]); });
+    edges.forEach(function(e){ e.g.classList.toggle('rel', !!relE[e.id]); });
+    describe(key);
+  }
+  function showTip(key, ev){
+    if (ev.pointerType === 'touch') return;
+    var title, text;
+    if (nodeEls[key]){ title = nodeEls[key].title; text = nodeEls[key].desc.split('. ')[0].replace(/\.$/,'')+'.'; }
+    else { title = edgeEls[key].title; text = edgeEls[key].desc; }
+    tip.innerHTML = '<b>'+esc(title)+'</b>'+esc(text);
+    moveTip(ev); tip.classList.add('on');
+  }
+  function moveTip(ev){
+    var r = stage.getBoundingClientRect();
+    var x = ev.clientX - r.left + stage.scrollLeft + 14, y = ev.clientY - r.top + 16;
+    var maxX = stage.scrollLeft + stage.clientWidth - 300;
+    tip.style.left = Math.max(stage.scrollLeft+6, Math.min(x, maxX)) + 'px';
+    tip.style.top = Math.min(y, stage.clientHeight - 90) + 'px';
+  }
+  function hideTip(){ tip.classList.remove('on'); }
+
+  function bind(el, key){
+    el.addEventListener('pointerenter', function(ev){ hovered = key; applyFocus(); showTip(key, ev); });
+    el.addEventListener('pointermove', moveTip);
+    el.addEventListener('pointerleave', function(){ hovered = null; applyFocus(); hideTip(); });
+    el.addEventListener('click', function(ev){ ev.stopPropagation(); selected = (selected === key) ? null : key; hovered = null; applyFocus(); hideTip(); });
+  }
+  nodes.forEach(function(n){
+    bind(n.g, n.id);
+    n.g.addEventListener('focus', function(){ hovered = n.id; applyFocus(); });
+    n.g.addEventListener('blur', function(){ hovered = null; applyFocus(); });
+    n.g.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); selected = (selected === n.id) ? null : n.id; applyFocus(); }
+    });
+  });
+  edges.forEach(function(e){ bind(e.g, e.id); });
+  svg.addEventListener('click', function(){ selected = null; hovered = null; applyFocus(); });
+  applyFocus();
+
+  // ---------- Export: Copy SVG and Copy PNG ----------
+  var tb = document.querySelector('.toolbar');
+  document.getElementById('tbToggle').addEventListener('click', function(){ tb.classList.toggle('expanded'); });
+
+  function buildSvgString(){
+    var c = svg.cloneNode(true);
+    ['id','class','role','aria-label'].forEach(function(a){ c.removeAttribute(a); });
+    c.setAttribute('xmlns', NS);
+    c.setAttribute('width', '1290'); c.setAttribute('height', '580');
+    Array.prototype.forEach.call(c.querySelectorAll('.hit, circle.p'), function(h){ h.parentNode.removeChild(h); });
+    Array.prototype.forEach.call(c.querySelectorAll('[class]'), function(h){ h.removeAttribute('class'); });
+    Array.prototype.forEach.call(c.querySelectorAll('[tabindex],[role],[aria-label],[data-id]'), function(h){
+      ['tabindex','role','aria-label','data-id'].forEach(function(a){ h.removeAttribute(a); });
+    });
+    var t = document.createElementNS(NS,'title'); t.textContent = 'Prediction Market Hedging Platform architecture';
+    c.insertBefore(t, c.firstChild);
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(c);
+  }
+  window.__buildSvgString = buildSvgString;
+
+  var svgBox = document.getElementById('svgBox'), svgText = document.getElementById('svgText');
+  var copySvgBtn = document.getElementById('copySvg');
+  function flash(btn, msg, orig){ btn.textContent = msg; setTimeout(function(){ btn.textContent = orig; }, 2000); }
+  copySvgBtn.addEventListener('click', function(){
+    var orig = copySvgBtn.textContent, s = buildSvgString(), started = false;
+    function fallback(){ svgText.value = s; svgBox.classList.add('on'); svgText.focus(); svgText.select(); flash(copySvgBtn, '✗ Blocked', orig); }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        started = true;
+        navigator.clipboard.writeText(s).then(function(){ flash(copySvgBtn, '✓ Copied!', orig); }, fallback);
+      }
+    } catch(e){ started = false; }
+    if (!started) fallback();
+  });
+  document.getElementById('svgClose').addEventListener('click', function(){ svgBox.classList.remove('on'); });
+
+  var copyPngBtn = document.getElementById('copyPng');
+  copyPngBtn.addEventListener('click', async function(){
+    var orig = copyPngBtn.textContent;
+    try {
+      var r = svg.parentNode.getBoundingClientRect(), pad = 16;
+      var canvas = await html2canvas(document.body, {backgroundColor:'#090a0c', scale:2, useCORS:true,
+        ignoreElements:function(e){ return e.classList && (e.classList.contains('toolbar') || e.id === 'tip'); },
+        x:r.left+window.scrollX-pad, y:r.top+window.scrollY-pad, width:r.width+pad*2, height:r.height+pad*2});
+      var blob = await new Promise(function(res){ canvas.toBlob(res,'image/png'); });
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      flash(copyPngBtn, '✓ Copied!', orig);
+    } catch(e){ flash(copyPngBtn, '✗ Failed', orig); }
+  });
+})();
+</script>
+</body>
+</html>
