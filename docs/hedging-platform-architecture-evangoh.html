@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hedging Platform Architecture · evangoh.com theme</title>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Hedging Platform Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <style>
-/* Layout from Cocoon AI architecture-diagram (MIT), recoloured to the evangoh.com theme: near-black ground #090a0c, grid, semantic component colours, JetBrains Mono. */
+/* Design system from Cocoon AI architecture-diagram (MIT): slate-950 ground, grid, semantic component colours, JetBrains Mono. */
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--speed:1;color-scheme:dark}
-body{font-family:Geist,'Segoe UI Variable','SF Pro Display',system-ui,-apple-system,sans-serif;background:#090a0c;min-height:100vh;padding:2rem;color:#f3f1ea}
+body{font-family:'JetBrains Mono',monospace;background:#090a0c;min-height:100vh;padding:2rem;color:#f3f1ea}
 .container{max-width:1200px;margin:0 auto}
 .header{margin-bottom:1.25rem}
 .header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
@@ -70,10 +70,9 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
 .footer{text-align:center;margin-top:1.5rem;color:#818791;font-size:.75rem;line-height:1.6}
 #svgBox{display:none;margin-top:1rem;gap:.5rem}
 #svgBox.on{display:grid}
-#svgBox textarea{width:100%;height:140px;background:#090a0c;color:#b8bdc5;border:1px solid #32363d;border-radius:.5rem;font:.7rem 'JetBrains Mono','SF Mono','Geist Mono','Fira Code',ui-monospace,monospace;padding:.6rem}
+#svgBox textarea{width:100%;height:140px;background:#090a0c;color:#b8bdc5;border:1px solid #32363d;border-radius:.5rem;font:.7rem 'JetBrains Mono',monospace;padding:.6rem}
 #svgBox div{display:flex;gap:.75rem;align-items:center;font-size:.72rem;color:#818791}
 @media print{body{background:#090a0c;padding:1rem}.toolbar,.controls{display:none!important}}
-.panel .tag,output,#status,.hint,.links,.footer,#svgBox div{font-family:'JetBrains Mono','SF Mono','Geist Mono','Fira Code',ui-monospace,monospace}
 </style>
 </head>
 <body>
@@ -103,7 +102,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
   </div>
 
   <div class="diagram-container" id="stage">
-    <svg id="diagram" viewBox="0 0 1290 580" xmlns="http://www.w3.org/2000/svg" font-family="Geist, Segoe UI Variable, SF Pro Display, system-ui, sans-serif" role="img" aria-label="Architecture diagram. Polygon, IBKR and FRED feed three ingestion modules, which write to Bronze, Silver and Gold Delta tables. Gold feeds the backtesting engine, then risk analytics, FastAPI and the React dashboard."></svg>
+    <svg id="diagram" viewBox="0 0 1290 580" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, ui-monospace, monospace" role="img" aria-label="Architecture diagram. Polygon, IBKR and FRED feed three ingestion modules, which write to Bronze, Silver and Gold Delta tables. Gold feeds the backtesting engine, then risk analytics, FastAPI and the React dashboard."></svg>
     <div id="tip" role="tooltip"></div>
   </div>
   <p class="hint">Scroll the diagram sideways to see all of it.</p>
@@ -145,7 +144,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
     </div>
   </div>
 
-  <p class="footer">Prediction Market Hedging Research Platform • read-only data access • animation shows architecture, not live API traffic<br>Layout follows the Cocoon AI architecture-diagram skill (MIT); colours match evangoh.com</p>
+  <p class="footer">Prediction Market Hedging Research Platform • read-only data access • animation shows architecture, not live API traffic<br>Visual style follows the Cocoon AI architecture-diagram skill (MIT)</p>
 </div>
 
 <script>
@@ -250,7 +249,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
     var g = mk('g',{'class':'edge','data-id':e.id}, svg);
     var line = mk('path',{'class':'line flow',d:e.d,fill:'none',stroke:P[e.c].s,'stroke-width':1.5,'stroke-opacity':.75,'stroke-dasharray':'5,4','marker-end':'url(#ah-'+e.c+')'}, g);
     mk('path',{'class':'hit',d:e.d}, g);
-    if (e.label) mk('text',{x:e.lx,y:e.ly,'text-anchor':e.anchor||'middle',fill:'#b8bdc5','font-size':8,'font-family':"JetBrains Mono, ui-monospace, monospace"}, g, e.label);
+    if (e.label) mk('text',{x:e.lx,y:e.ly,'text-anchor':e.anchor||'middle',fill:'#b8bdc5','font-size':8}, g, e.label);
     e.line = line; e.g = g; e.len = line.getTotalLength();
     e.parts = [];
     var n = Math.max(2, Math.round(e.len/75));
