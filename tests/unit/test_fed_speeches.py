@@ -43,3 +43,12 @@ def test_conservative_ts_fall_back_boundary():
 def test_conservative_ts_never_before_scheduled_day_end():
     t = conservative_available_ts(item(2026, 1, 15, 23))
     assert t == datetime(2026, 1, 17, 4, 59, 59, tzinfo=UTC)
+
+
+def test_assumed_availability_is_tagged_uncorroborated():
+    from pm_macro.ingest.fed_speeches import AVAILABILITY_BASIS, assumed_availability
+
+    est = assumed_availability(item(2026, 10, 8))
+    assert est.basis == AVAILABILITY_BASIS == "assumed_scheduled_day_plus_1"
+    assert est.corroborated is False
+    assert est.available_ts == conservative_available_ts(item(2026, 10, 8))

@@ -25,7 +25,7 @@ By speaker (all items): Bowman 55, Waller 41, Barr 38, Cook 25, Jefferson 23, Po
 Caveats:
 - The feed is **Board members only**. Regional Reserve Bank presidents (most FOMC voters rotate from there) are NOT included, so this undercounts policy-relevant speech.
 - Many Board speeches are supervision/regulation, which is why the policy-titled count is far below 226. The keyword filter is a rough heuristic; labeling should be done by the LLM and checked by hand.
-- The `d` field has 90 distinct times of day, so it looks like a real scheduled time, but whether it is Eastern time and whether the text was posted then is **unverified**. Primary rule stays: use first-observed `available_ts`, fall back to end of day.
+- The `d` field has 90 distinct times of day, so it looks like a real scheduled time, but whether it is Eastern time and whether the text was posted then is **unverified**. Primary rule stays: use first-observed `available_ts`, fall back to the uncorroborated `assumed_scheduled_day_plus_1` estimate (excluded from confirmatory analysis).
 - The blackout filter is an approximation (second Saturday before each meeting through the day after).
 - A few months have only 2-3 items (Dec 2024, Dec 2025, Jun 2026, Aug 2026).
 

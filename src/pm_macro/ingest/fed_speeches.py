@@ -3,8 +3,8 @@
 The feed's ``d`` field is a *scheduled* date/time of UNVERIFIED timezone (it may be Eastern, but
 that is not established) and is NOT a verified publication time. It is therefore kept as a naive
 ``scheduled_local`` datetime plus the raw string; it is never labelled UTC. Callers must store
-their own first-observed ``available_ts``; ``conservative_available_ts`` is only a fail-safe
-fallback.
+their own first-observed ``available_ts``; ``conservative_available_ts`` is only an uncorroborated
+assumption.
 """
 
 from __future__ import annotations
@@ -16,7 +16,21 @@ from zoneinfo import ZoneInfo
 
 FEED_URL = "https://www.federalreserve.gov/json/ne-speeches.json"
 DATA_SOURCE = "frb_speech"
+AVAILABILITY_BASIS = "assumed_scheduled_day_plus_1"
 _NY = ZoneInfo("America/New_York")
+
+
+@dataclass(frozen=True)
+class AvailabilityEstimate:
+    """An availability timestamp plus how it was derived.
+
+    Rows with ``corroborated=False`` (basis ``AVAILABILITY_BASIS``) must be excluded from
+    leakage-sensitive or confirmatory analysis.
+    """
+
+    available_ts: datetime  # timezone-aware UTC
+    basis: str
+    corroborated: bool = False
 
 
 @dataclass(frozen=True)
@@ -45,15 +59,22 @@ def parse_feed(raw: str) -> list[SpeechItem]:
 
 
 def conservative_available_ts(item: SpeechItem) -> datetime:
-    """Latest plausible availability time, as a timezone-aware UTC datetime.
+    """ASSUMED availability instant (timezone-aware UTC), not an observed one.
 
-    The feed time has an unverified timezone and is only a schedule, so we cannot know when the
-    text was actually posted. We assume the scheduled calendar day is in America/New_York (the
-    Board's home zone) and add a safety margin of one full day: the result is 23:59:59
-    America/New_York on the day AFTER the scheduled day, converted to UTC. Even if the feed were in
-    another US zone, or the text were posted late, nothing is treated as available before this
-    instant. DST is handled by constructing the wall-clock time in the zone (not by adding a fixed
-    UTC offset).
+    The feed time has an unverified timezone and is only a schedule, so the real posting time is
+    unknown. We ASSUME the scheduled calendar day is in America/New_York (the Board's home zone) and
+    add a one-day margin: the result is 23:59:59 America/New_York on the day AFTER the scheduled
+    day, converted to UTC. This is an assumption, not a guarantee: it is not proven to be an upper
+    bound on posting time. Values from here must be EXCLUDED from leakage-sensitive and
+    confirmatory analysis unless corroborated by a first-observed timestamp (see
+    ``assumed_availability``). DST is handled by building the wall-clock time in the zone (not by
+    adding a fixed UTC offset).
     """
     next_day = item.scheduled_local.date() + timedelta(days=1)
     return datetime.combine(next_day, time(23, 59, 59), tzinfo=_NY).astimezone(UTC)
+
+
+def assumed_availability(item: SpeechItem) -> AvailabilityEstimate:
+    """Assumed availability tagged as uncorroborated; ``corroborated`` stays False until a
+    first-observed ``available_ts`` confirms it (set by the caller that observed the page)."""
+    return AvailabilityEstimate(conservative_available_ts(item), AVAILABILITY_BASIS, False)
