@@ -102,7 +102,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
   </div>
 
   <div class="diagram-container" id="stage">
-    <svg id="diagram" viewBox="0 0 1290 580" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, ui-monospace, monospace" role="img" aria-label="Architecture diagram. Polygon, IBKR and FRED feed three ingestion modules, which write to Bronze, Silver and Gold Delta tables. Gold feeds the backtesting engine, then risk analytics, FastAPI and the React dashboard."></svg>
+    <svg id="diagram" viewBox="0 0 1290 580" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, ui-monospace, monospace" role="group" aria-label="Architecture diagram. Polygon, IBKR and FRED feed three ingestion modules, which write to Bronze, Silver and Gold Delta tables. Gold feeds the backtesting engine, then risk analytics, FastAPI and the React dashboard."></svg>
     <div id="tip" role="tooltip"></div>
   </div>
   <p class="hint">Scroll the diagram sideways to see all of it.</p>
@@ -246,7 +246,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
   // Edges first so boxes paint over them
   var edgeEls = {};
   edges.forEach(function(e){
-    var g = mk('g',{'class':'edge','data-id':e.id}, svg);
+    var g = mk('g',{'class':'edge','data-id':e.id,tabindex:0,role:'button','aria-label':e.title}, svg);
     var line = mk('path',{'class':'line flow',d:e.d,fill:'none',stroke:P[e.c].s,'stroke-width':1.5,'stroke-opacity':.75,'stroke-dasharray':'5,4','marker-end':'url(#ah-'+e.c+')'}, g);
     mk('path',{'class':'hit',d:e.d}, g);
     if (e.label) mk('text',{x:e.lx,y:e.ly,'text-anchor':e.anchor||'middle',fill:'#b8bdc5','font-size':8}, g, e.label);
@@ -403,7 +403,14 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
       if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); selected = (selected === n.id) ? null : n.id; applyFocus(); }
     });
   });
-  edges.forEach(function(e){ bind(e.g, e.id); });
+  edges.forEach(function(e){
+    bind(e.g, e.id);
+    e.g.addEventListener('focus', function(){ hovered = e.id; applyFocus(); });
+    e.g.addEventListener('blur', function(){ hovered = null; applyFocus(); });
+    e.g.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); selected = (selected === e.id) ? null : e.id; applyFocus(); }
+    });
+  });
   svg.addEventListener('click', function(){ selected = null; hovered = null; applyFocus(); });
   applyFocus();
 
