@@ -16,5 +16,5 @@ jobs:
       - run: pytest -m "not spark and not databricks and not live"
       - name: No committed data files outside fixtures
         run: |
-          bad=$(git ls-files | grep -E '\.(parquet|csv)$' | grep -v '^tests/fixtures/' || true)
+          bad=$(git ls-files | grep -iE '\.(csv|parquet|xlsx|xls|feather|arrow|pkl|pickle|json\.gz|db|sqlite|duckdb)$' | grep -v '^tests/fixtures/' || true)
           if [ -n "$bad" ]; then echo "$bad"; exit 1; fi
