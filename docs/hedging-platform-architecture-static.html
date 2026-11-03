@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hedging Platform Architecture · evangoh.com theme</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* Layout from Cocoon AI architecture-diagram (MIT), recoloured to the evangoh.com theme: near-black ground #090a0c, grid, semantic component colours, JetBrains Mono. */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--speed:1;color-scheme:dark}
+body{font-family:Geist,'Segoe UI Variable','SF Pro Display',system-ui,-apple-system,sans-serif;background:#090a0c;min-height:100vh;padding:2rem;color:#f3f1ea}
+.container{max-width:1200px;margin:0 auto}
+.header{margin-bottom:1.25rem}
+.header-row{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+.pulse-dot{width:12px;height:12px;background:#d6b65a;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+h1{font-size:1.5rem;font-weight:700;letter-spacing:-.025em;text-wrap:balance}
+.subtitle{color:#b8bdc5;font-size:.875rem;margin-left:1.75rem;line-height:1.5}
+
+.toolbar{display:none!important;display:flex;gap:.5rem;margin-left:auto;flex-shrink:0;align-items:center}
+.toolbar-toggle{background:transparent;border:none;color:#818791;cursor:pointer;font-size:1.25rem;line-height:1;padding:.25rem .5rem;border-radius:.375rem;transition:color .2s,background .2s;font-family:inherit}
+.toolbar-toggle:hover{color:#b8bdc5;background:rgba(24,27,32,.6)}
+.toolbar-actions{display:none;gap:.5rem}
+.toolbar.expanded .toolbar-actions{display:flex}
+button.btn,.toolbar-actions button{background:rgba(24,27,32,.9);border:1px solid #32363d;color:#b8bdc5;padding:.375rem .75rem;border-radius:.375rem;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap;min-height:32px}
+button.btn:hover,.toolbar-actions button:hover{background:rgba(50,54,61,.9);color:#f3f1ea;border-color:#818791}
+button:focus-visible,input:focus-visible,.node:focus-visible{outline:2px solid #d6b65a;outline-offset:3px}
+
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.25rem;margin-bottom:1rem}
+.controls label{display:flex;align-items:center;gap:.6rem;font-size:.75rem;color:#b8bdc5}
+input[type=range]{width:140px;accent-color:#d6b65a}
+output{font-size:.75rem;color:#f3f1ea;min-width:3.6em}
+#status{font-size:.72rem;color:#818791}
+
+.diagram-container{position:relative;background:rgba(17,19,23,.75);border-radius:1rem;border:1px solid #22262c;padding:1.5rem;overflow-x:auto}
+svg#diagram{width:100%;min-width:960px;display:block}
+.node{cursor:pointer;transition:opacity .15s}
+.edge{transition:opacity .15s}
+.hit{fill:none;stroke:transparent;stroke-width:18;pointer-events:stroke;cursor:pointer}
+.has-focus .node:not(.rel),.has-focus .edge:not(.rel){opacity:.2}
+.node.rel rect.box{stroke-width:2.2}
+.edge.rel path.line{stroke-width:2.6;stroke-opacity:1}
+svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
+.flow{animation:dash calc(.9s / var(--speed,1)) linear infinite}
+@keyframes dash{to{stroke-dashoffset:-9}}
+.paused .flow{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.flow,.pulse-dot{animation:none}}
+.hint{display:none;font-size:.7rem;color:#818791;margin-top:.5rem}
+@media (max-width:1010px){.hint{display:block}}
+#tip{position:absolute;z-index:3;max-width:290px;padding:.55rem .7rem;border-radius:.4rem;background:#090a0c;border:1px solid #32363d;font-size:.72rem;line-height:1.5;color:#b8bdc5;pointer-events:none;opacity:0;transition:opacity .1s}
+#tip b{display:block;color:#f3f1ea;font-weight:600;margin-bottom:2px}
+#tip.on{opacity:1}
+
+.card,.panel{background:rgba(17,19,23,.75);border-radius:.75rem;border:1px solid #22262c;padding:1.25rem}
+.panel{margin-top:1rem;min-height:150px;display:grid;gap:.6rem;align-content:start}
+.panel h2{font-size:.95rem;font-weight:600}
+.panel .tag{font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:#818791}
+.panel p{font-size:.78rem;line-height:1.65;color:#b8bdc5;max-width:90ch}
+.links{display:flex;flex-wrap:wrap;gap:.3rem 1.5rem;font-size:.72rem;color:#818791}
+.links b{color:#f3f1ea;font-weight:500}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-top:1rem}
+.card-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.card-dot{width:8px;height:8px;border-radius:50%}
+.card-dot.cyan{background:#6f8fb8}.card-dot.emerald{background:#7fbfae}.card-dot.violet{background:#d6b65a}.card-dot.amber{background:#f1d77a}.card-dot.orange{background:#e09a4a}
+.card h3{font-size:.875rem;font-weight:600}
+.card ul{list-style:none;color:#b8bdc5;font-size:.75rem}
+.card li{margin-bottom:.375rem;line-height:1.5}
+.footer{text-align:center;margin-top:1.5rem;color:#818791;font-size:.75rem;line-height:1.6}
+#svgBox{display:none;margin-top:1rem;gap:.5rem}
+#svgBox.on{display:grid}
+#svgBox textarea{width:100%;height:140px;background:#090a0c;color:#b8bdc5;border:1px solid #32363d;border-radius:.5rem;font:.7rem 'JetBrains Mono','SF Mono','Geist Mono','Fira Code',ui-monospace,monospace;padding:.6rem}
+#svgBox div{display:flex;gap:.75rem;align-items:center;font-size:.72rem;color:#818791}
+@media print{body{background:#090a0c;padding:1rem}.toolbar,.controls{display:none!important}}
+.panel .tag,output,#status,.hint,.links,.footer,#svgBox div{font-family:'JetBrains Mono','SF Mono','Geist Mono','Fira Code',ui-monospace,monospace}
+#svgBox,.hint,#tip{display:none!important}.node:hover rect.box{stroke-width:2.4}.edge:hover path.line{stroke-width:2.6;stroke-opacity:1}
+</style>
+</head>
+<body>
+<div class="container" id="report-container">
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>Prediction Market Hedging Platform Architecture</h1>
+      <div class="toolbar">
+        <div class="toolbar-actions">
+          <button type="button" id="copySvg">📋 Copy SVG</button>
+          <button type="button" id="copyPng">🖼️ Copy PNG</button>
+        </div>
+        <button class="toolbar-toggle" type="button" id="tbToggle" title="Export options" aria-label="Export options">⋯</button>
+      </div>
+    </div>
+    <p class="subtitle">Three data providers flow through a Databricks Delta lakehouse and a backtesting engine to a research dashboard. </p>
+  </div>
+
+  <div class="diagram-container" id="stage">
+    <svg id="diagram" viewBox="0 0 1290 580" xmlns="http://www.w3.org/2000/svg" font-family="Geist, Segoe UI Variable, SF Pro Display, system-ui, sans-serif" role="img" aria-label="Architecture diagram. Polygon, IBKR and FRED feed three ingestion modules, which write to Bronze, Silver and Gold Delta tables. Gold feeds the backtesting engine, then risk analytics, FastAPI and the React dashboard."><defs><marker id="ah-slate" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0 0, 10 3.5, 0 7" fill="#b8bdc5"></polygon></marker><marker id="ah-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0 0, 10 3.5, 0 7" fill="#7fbfae"></polygon></marker><marker id="ah-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0 0, 10 3.5, 0 7" fill="#d6b65a"></polygon></marker><marker id="ah-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0 0, 10 3.5, 0 7" fill="#e09a4a"></polygon></marker><marker id="ah-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0 0, 10 3.5, 0 7" fill="#6f8fb8"></polygon></marker><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#22262c" stroke-width="0.5"></path></pattern></defs><rect width="1290" height="580" fill="#090a0c"></rect><rect width="1290" height="580" fill="url(#grid)"></rect><text x="30" y="66" fill="#b8bdc5" font-size="8" letter-spacing="0.6" text-anchor="start">SOURCES</text><text x="290" y="66" fill="#b8bdc5" font-size="8" letter-spacing="0.6" text-anchor="start">INGESTION · PYTHON</text><text x="374" y="410" fill="#b8bdc5" font-size="8" letter-spacing="0.6" text-anchor="start">RESEARCH AND SERVING · PYTHON · FASTAPI · REACT</text><rect x="584" y="160" width="670" height="140" rx="12" fill="rgba(241, 215, 122, 0.05)" stroke="#f1d77a" stroke-width="1" stroke-dasharray="8,4"></rect><text x="596" y="178" fill="#f1d77a" font-size="10" font-weight="600">Databricks Lakehouse · Delta Lake</text><rect x="30" y="420" width="300" height="76" rx="6" fill="transparent" stroke="#22262c" stroke-width="1"></rect><text x="44" y="444" fill="#f3f1ea" font-size="9" font-weight="600">Reading the motion</text><text x="44" y="462" fill="#b8bdc5" font-size="8">Moving dots are batches of records.</text><text x="44" y="476" fill="#b8bdc5" font-size="8">Animation shows architecture,</text><text x="44" y="488" fill="#b8bdc5" font-size="8">not live API traffic.</text><g class="edge" data-id="e1"><path class="line flow" d="M220,118 L290,118" fill="none" stroke="#b8bdc5" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-slate)"></path><path class="hit" d="M220,118 L290,118"></path><text x="255" y="111" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">REST</text><circle class="p" r="3" fill="#b8bdc5" cx="227.0" cy="118.0"></circle><circle class="p" r="3" fill="#b8bdc5" cx="262.0" cy="118.0"></circle></g><g class="edge" data-id="e2"><path class="line flow" d="M220,238 L290,238" fill="none" stroke="#b8bdc5" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-slate)"></path><path class="hit" d="M220,238 L290,238"></path><text x="255" y="231" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">quotes</text><circle class="p" r="3" fill="#b8bdc5" cx="227.0" cy="238.0"></circle><circle class="p" r="3" fill="#b8bdc5" cx="262.0" cy="238.0"></circle></g><g class="edge" data-id="e3"><path class="line flow" d="M220,358 L290,358" fill="none" stroke="#b8bdc5" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-slate)"></path><path class="hit" d="M220,358 L290,358"></path><text x="255" y="351" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">series</text><circle class="p" r="3" fill="#b8bdc5" cx="227.0" cy="358.0"></circle><circle class="p" r="3" fill="#b8bdc5" cx="262.0" cy="358.0"></circle></g><g class="edge" data-id="e4"><path class="line flow" d="M520,118 C562,118 562,238 604,238" fill="none" stroke="#7fbfae" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-emerald)"></path><path class="hit" d="M520,118 C562,118 562,238 604,238"></path><circle class="p" r="3" fill="#7fbfae" cx="526.9" cy="119.2"></circle><circle class="p" r="3" fill="#7fbfae" cx="564.3" cy="184.6"></circle></g><g class="edge" data-id="e5"><path class="line flow" d="M520,238 L604,238" fill="none" stroke="#7fbfae" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-emerald)"></path><path class="hit" d="M520,238 L604,238"></path><text x="562" y="231" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">append</text><circle class="p" r="3" fill="#7fbfae" cx="527.0" cy="238.0"></circle><circle class="p" r="3" fill="#7fbfae" cx="569.0" cy="238.0"></circle></g><g class="edge" data-id="e6"><path class="line flow" d="M520,358 C562,358 562,238 604,238" fill="none" stroke="#7fbfae" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-emerald)"></path><path class="hit" d="M520,358 C562,358 562,238 604,238"></path><circle class="p" r="3" fill="#7fbfae" cx="526.9" cy="356.8"></circle><circle class="p" r="3" fill="#7fbfae" cx="564.3" cy="291.4"></circle></g><g class="edge" data-id="e7"><path class="line flow" d="M774,238 L834,238" fill="none" stroke="#d6b65a" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-violet)"></path><path class="hit" d="M774,238 L834,238"></path><text x="804" y="231" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">clean</text><circle class="p" r="3" fill="#d6b65a" cx="781.0" cy="238.0"></circle><circle class="p" r="3" fill="#d6b65a" cx="811.0" cy="238.0"></circle></g><g class="edge" data-id="e8"><path class="line flow" d="M1004,238 L1064,238" fill="none" stroke="#d6b65a" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-violet)"></path><path class="hit" d="M1004,238 L1064,238"></path><text x="1034" y="231" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">join</text><circle class="p" r="3" fill="#d6b65a" cx="1011.0" cy="238.0"></circle><circle class="p" r="3" fill="#d6b65a" cx="1041.0" cy="238.0"></circle></g><g class="edge" data-id="e9"><path class="line flow" d="M1149,276 L1149,420" fill="none" stroke="#d6b65a" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-violet)"></path><path class="hit" d="M1149,276 L1149,420"></path><text x="1159" y="352" text-anchor="start" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">features</text><circle class="p" r="3" fill="#d6b65a" cx="1149.0" cy="283.0"></circle><circle class="p" r="3" fill="#d6b65a" cx="1149.0" cy="355.0"></circle></g><g class="edge" data-id="e10"><path class="line flow" d="M1064,458 L1004,458" fill="none" stroke="#e09a4a" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-orange)"></path><path class="hit" d="M1064,458 L1004,458"></path><text x="1034" y="451" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">paths</text><circle class="p" r="3" fill="#e09a4a" cx="1057.0" cy="458.0"></circle><circle class="p" r="3" fill="#e09a4a" cx="1027.0" cy="458.0"></circle></g><g class="edge" data-id="e11"><path class="line flow" d="M834,458 L774,458" fill="none" stroke="#e09a4a" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-orange)"></path><path class="hit" d="M834,458 L774,458"></path><text x="804" y="451" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">metrics</text><circle class="p" r="3" fill="#e09a4a" cx="827.0" cy="458.0"></circle><circle class="p" r="3" fill="#e09a4a" cx="797.0" cy="458.0"></circle></g><g class="edge" data-id="e12"><path class="line flow" d="M604,458 L544,458" fill="none" stroke="#7fbfae" stroke-width="1.5" stroke-opacity="0.75" stroke-dasharray="5,4" marker-end="url(#ah-emerald)"></path><path class="hit" d="M604,458 L544,458"></path><text x="574" y="451" text-anchor="middle" fill="#b8bdc5" font-size="8" font-family="JetBrains Mono, ui-monospace, monospace">JSON</text><circle class="p" r="3" fill="#7fbfae" cx="597.0" cy="458.0"></circle><circle class="p" r="3" fill="#7fbfae" cx="567.0" cy="458.0"></circle></g><g class="node" data-id="polygon" tabindex="0" role="button" aria-label="Polygon / Massive. Supplies TLT OHLCV bars, historical options prices, volatility and contract metadata"><rect x="30" y="80" width="190" height="76" rx="6" fill="#111317"></rect><rect class="box" x="30" y="80" width="190" height="76" rx="6" fill="rgba(38, 42, 49, 0.6)" stroke="#b8bdc5" stroke-width="1.5"></rect><text x="125" y="108" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Polygon / Massive</text><text x="125" y="127" fill="#b8bdc5" font-size="9" text-anchor="middle">TLT OHLCV, options chains</text><text x="125" y="141" fill="#b8bdc5" font-size="9" text-anchor="middle">volatility, contract data</text></g><g class="node" data-id="ibkr" tabindex="0" role="button" aria-label="IBKR ForecastTrader. The source of prediction-market data: contracts, YES/NO quotes, event probabilities and settlement terms"><rect x="30" y="200" width="190" height="76" rx="6" fill="#111317"></rect><rect class="box" x="30" y="200" width="190" height="76" rx="6" fill="rgba(38, 42, 49, 0.6)" stroke="#b8bdc5" stroke-width="1.5"></rect><text x="125" y="228" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">IBKR ForecastTrader</text><text x="125" y="247" fill="#b8bdc5" font-size="9" text-anchor="middle">event contracts, YES/NO</text><text x="125" y="261" fill="#b8bdc5" font-size="9" text-anchor="middle">quotes, settlement terms</text></g><g class="node" data-id="fred" tabindex="0" role="button" aria-label="FRED / ALFRED. Federal funds rate, interest rates and macro indicators, with ALFRED vintages so each revision is tied to when it became known"><rect x="30" y="320" width="190" height="76" rx="6" fill="#111317"></rect><rect class="box" x="30" y="320" width="190" height="76" rx="6" fill="rgba(38, 42, 49, 0.6)" stroke="#b8bdc5" stroke-width="1.5"></rect><text x="125" y="348" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">FRED / ALFRED</text><text x="125" y="367" fill="#b8bdc5" font-size="9" text-anchor="middle">fed funds, rates, vintages</text><text x="125" y="381" fill="#b8bdc5" font-size="9" text-anchor="middle">FOMC calendar + outcomes</text></g><g class="node" data-id="mkt" tabindex="0" role="button" aria-label="Market Data Ingestion. Python module for historical backfills and scheduled incremental pulls"><rect x="290" y="80" width="230" height="76" rx="6" fill="#111317"></rect><rect class="box" x="290" y="80" width="230" height="76" rx="6" fill="rgba(31, 66, 58, 0.55)" stroke="#7fbfae" stroke-width="1.5"></rect><text x="405" y="108" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Market Data Ingestion</text><text x="405" y="127" fill="#b8bdc5" font-size="9" text-anchor="middle">backfill + scheduled increments</text><text x="405" y="141" fill="#b8bdc5" font-size="9" text-anchor="middle">retries, rate limits, dedup</text></g><g class="node" data-id="pm" tabindex="0" role="button" aria-label="Prediction Market Ingestion. Captures event-contract quotes with timestamps as they happen, because full history may not exist after contracts expire"><rect x="290" y="200" width="230" height="76" rx="6" fill="#111317"></rect><rect class="box" x="290" y="200" width="230" height="76" rx="6" fill="rgba(31, 66, 58, 0.55)" stroke="#7fbfae" stroke-width="1.5"></rect><text x="405" y="228" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Prediction Market Ingestion</text><text x="405" y="247" fill="#b8bdc5" font-size="9" text-anchor="middle">timestamped quote capture</text><text x="405" y="261" fill="#b8bdc5" font-size="9" text-anchor="middle">prospective, never backfilled</text></g><g class="node" data-id="macro" tabindex="0" role="button" aria-label="Macro Data Ingestion. Pulls FRED/ALFRED series with vintage dates and records FOMC events"><rect x="290" y="320" width="230" height="76" rx="6" fill="#111317"></rect><rect class="box" x="290" y="320" width="230" height="76" rx="6" fill="rgba(31, 66, 58, 0.55)" stroke="#7fbfae" stroke-width="1.5"></rect><text x="405" y="348" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Macro Data Ingestion</text><text x="405" y="367" fill="#b8bdc5" font-size="9" text-anchor="middle">vintage-aware series pulls</text><text x="405" y="381" fill="#b8bdc5" font-size="9" text-anchor="middle">publication dates preserved</text></g><g class="node" data-id="bronze" tabindex="0" role="button" aria-label="Bronze. Delta tables holding raw API responses exactly as received, with ingestion timestamps and source metadata"><rect x="604" y="200" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="604" y="200" width="170" height="76" rx="6" fill="rgba(84, 66, 20, 0.55)" stroke="#d6b65a" stroke-width="1.5"></rect><text x="689" y="228" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Bronze</text><text x="689" y="247" fill="#b8bdc5" font-size="9" text-anchor="middle">raw API responses,</text><text x="689" y="261" fill="#b8bdc5" font-size="9" text-anchor="middle">timestamps + metadata</text></g><g class="node" data-id="silver" tabindex="0" role="button" aria-label="Silver. Normalized ETF prices, options quotes, prediction-market contracts, FOMC events and macro observations"><rect x="834" y="200" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="834" y="200" width="170" height="76" rx="6" fill="rgba(84, 66, 20, 0.55)" stroke="#d6b65a" stroke-width="1.5"></rect><text x="919" y="228" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Silver</text><text x="919" y="247" fill="#b8bdc5" font-size="9" text-anchor="middle">normalized prices,</text><text x="919" y="261" fill="#b8bdc5" font-size="9" text-anchor="middle">quotes, FOMC, macro</text></g><g class="node" data-id="gold" tabindex="0" role="button" aria-label="Gold. Research-ready datasets joining ETF returns, option prices, event probabilities and macro features"><rect x="1064" y="200" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="1064" y="200" width="170" height="76" rx="6" fill="rgba(84, 66, 20, 0.55)" stroke="#d6b65a" stroke-width="1.5"></rect><text x="1149" y="228" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Gold</text><text x="1149" y="247" fill="#b8bdc5" font-size="9" text-anchor="middle">point-in-time data,</text><text x="1149" y="261" fill="#b8bdc5" font-size="9" text-anchor="middle">no look-ahead bias</text></g><g class="node" data-id="backtest" tabindex="0" role="button" aria-label="Backtesting Engine. Modular Python engine comparing four strategies: unhedged TLT, a protective put or put spread, an IBKR YES contract on a Fed hike, and a combination"><rect x="1064" y="420" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="1064" y="420" width="170" height="76" rx="6" fill="rgba(88, 50, 14, 0.5)" stroke="#e09a4a" stroke-width="1.5"></rect><text x="1149" y="448" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Backtesting Engine</text><text x="1149" y="467" fill="#b8bdc5" font-size="9" text-anchor="middle">4 TLT hedge strategies</text><text x="1149" y="481" fill="#b8bdc5" font-size="9" text-anchor="middle">realistic exec costs</text></g><g class="node" data-id="risk" tabindex="0" role="button" aria-label="Risk Analytics. Returns, volatility, Sharpe, maximum drawdown, VaR and CVaR, hedge cost and effectiveness, portfolio loss reduction, event payout versus actual ETF move, basis risk, capital efficiency and sensitivity to transaction costs."><rect x="834" y="420" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="834" y="420" width="170" height="76" rx="6" fill="rgba(88, 50, 14, 0.5)" stroke="#e09a4a" stroke-width="1.5"></rect><text x="919" y="448" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">Risk Analytics</text><text x="919" y="467" fill="#b8bdc5" font-size="9" text-anchor="middle">drawdown, VaR, CVaR</text><text x="919" y="481" fill="#b8bdc5" font-size="9" text-anchor="middle">hedge cost, basis risk</text></g><g class="node" data-id="api" tabindex="0" role="button" aria-label="FastAPI. Serves research results through FastAPI endpoints with source attribution"><rect x="604" y="420" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="604" y="420" width="170" height="76" rx="6" fill="rgba(31, 66, 58, 0.55)" stroke="#7fbfae" stroke-width="1.5"></rect><text x="689" y="448" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">FastAPI</text><text x="689" y="467" fill="#b8bdc5" font-size="9" text-anchor="middle">research endpoints</text><text x="689" y="481" fill="#b8bdc5" font-size="9" text-anchor="middle">read-only access</text></g><g class="node" data-id="ui" tabindex="0" role="button" aria-label="React Dashboard. Quantitative workbench in React and Tailwind CSS with five sections: Research Overview, Strategy Builder, Backtest Comparison, Basis Risk Analysis, and Data Quality and Provenance (observed, simulated or illustrative)."><rect x="374" y="420" width="170" height="76" rx="6" fill="#111317"></rect><rect class="box" x="374" y="420" width="170" height="76" rx="6" fill="rgba(26, 44, 72, 0.55)" stroke="#6f8fb8" stroke-width="1.5"></rect><text x="459" y="448" fill="#f3f1ea" font-size="11" font-weight="600" text-anchor="middle">React Dashboard</text><text x="459" y="467" fill="#b8bdc5" font-size="9" text-anchor="middle">5-section workbench</text><text x="459" y="481" fill="#b8bdc5" font-size="9" text-anchor="middle">strategies + provenance</text></g><text x="30" y="556" fill="#f3f1ea" font-size="10" font-weight="600">Legend</text><rect x="100" y="548" width="16" height="10" rx="2" fill="rgba(38, 42, 49, 0.6)" stroke="#b8bdc5" stroke-width="1"></rect><text x="122" y="556" fill="#b8bdc5" font-size="8">Source</text><rect x="177.4" y="548" width="16" height="10" rx="2" fill="rgba(31, 66, 58, 0.55)" stroke="#7fbfae" stroke-width="1"></rect><text x="199.4" y="556" fill="#b8bdc5" font-size="8">Ingestion / API</text><rect x="298.9" y="548" width="16" height="10" rx="2" fill="rgba(84, 66, 20, 0.55)" stroke="#d6b65a" stroke-width="1"></rect><text x="320.9" y="556" fill="#b8bdc5" font-size="8">Lakehouse table</text><rect x="420.4" y="548" width="16" height="10" rx="2" fill="rgba(88, 50, 14, 0.5)" stroke="#e09a4a" stroke-width="1"></rect><text x="442.4" y="556" fill="#b8bdc5" font-size="8">Research compute</text><rect x="546.8" y="548" width="16" height="10" rx="2" fill="rgba(26, 44, 72, 0.55)" stroke="#6f8fb8" stroke-width="1"></rect><text x="568.8" y="556" fill="#b8bdc5" font-size="8">Frontend</text><line x1="634" y1="553" x2="650" y2="553" stroke="#b8bdc5" stroke-width="1.5" stroke-dasharray="5,4"></line><text x="656" y="556" fill="#b8bdc5" font-size="8">Data flow</text><rect x="726.1" y="548" width="16" height="10" rx="2" fill="rgba(241, 215, 122, 0.05)" stroke="#f1d77a" stroke-width="1" stroke-dasharray="3,3"></rect><text x="748.1" y="556" fill="#b8bdc5" font-size="8">Lakehouse boundary</text></svg>
+    
+  </div>
+  
+
+  
+
+  
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-header"><div class="card-dot cyan"></div><h3>Data sources</h3></div>
+      <ul>
+        <li>• Polygon / Massive: TLT bars, options, volatility</li>
+        <li>• IBKR ForecastTrader: event-contract quotes</li>
+        <li>• FRED / ALFRED: macro series and vintages</li>
+        <li>• Federal Reserve: FOMC calendar and outcomes</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot violet"></div><h3>Lakehouse layers</h3></div>
+      <ul>
+        <li>• Bronze: raw responses with timestamps</li>
+        <li>• Silver: normalized prices, quotes, events</li>
+        <li>• Gold: point-in-time research datasets</li>
+        <li>• Signal time kept apart from execution time</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot orange"></div><h3>Strategies compared</h3></div>
+      <ul>
+        <li>• Long TLT, unhedged</li>
+        <li>• Long TLT + protective put or put spread</li>
+        <li>• Long TLT + IBKR YES contract on a Fed hike</li>
+        <li>• Long TLT + options and event contracts combined</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">Prediction Market Hedging Research Platform • read-only data access • animation shows architecture, not live API traffic<br>Layout follows the Cocoon AI architecture-diagram skill (MIT); colours match evangoh.com</p>
+</div>
+
+
+</body>
+</html>
