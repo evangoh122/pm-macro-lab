@@ -1,11 +1,17 @@
 """cutoff_guard: decide whether an LLM score may count as confirmatory.
 
 A row is confirmatory only if every condition holds; anything unknown fails closed.
+
+Pre-registration trust model: the YAML ``committed_on`` is a human note and is IGNORED. A
+registration counts only if ``registration_commit_ts`` (see ``prereg_provenance``) supplies the
+git COMMITTER timestamp of the commit that introduced it, and that instant is strictly before
+``event_release_ts``. Residual trust assumption: the git history of the default branch is not
+rewritten or back-dated by a committer, and CI runs on a full-depth checkout (``fetch-depth: 0``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -39,37 +45,50 @@ class ModelCutoff:
 
 @dataclass(frozen=True)
 class Registration:
-    """A pre-registration committed before the event it covers."""
+    """A pre-registration entry. ``committed_on`` is an unverified human note, never used."""
 
     id: str
     model_id: str
     prompt_hash: str
-    committed_on: date
+    committed_on: date | None = None
 
 
-def _as_date(v: Any) -> date | None:
+def _as_date(v: Any, field: str) -> date | None:
+    """None -> None; pure date -> itself; aware datetime -> UTC date; naive datetime/other -> error."""
     if v is None:
         return None
     if isinstance(v, datetime):
-        return v.date()
+        if v.tzinfo is None:
+            raise CutoffGuardError(f"{field}: naive datetime not allowed")
+        return v.astimezone(UTC).date()
     if isinstance(v, date):
         return v
-    return date.fromisoformat(str(v))
+    raise CutoffGuardError(f"{field}: expected a date, got {type(v).__name__}")
+
+
+def _pure_date(v: Any, field: str) -> date:
+    if isinstance(v, datetime) or not isinstance(v, date):
+        raise CutoffGuardError(f"{field}: expected a plain date, got {type(v).__name__}")
+    return v
 
 
 def load_registry(path: str | Path) -> dict[str, ModelCutoff]:
-    data: dict[str, Any] = yaml.safe_load(Path(path).read_text())
+    data: dict[str, Any] = yaml.safe_load(Path(path).read_text()) or {}
     out: dict[str, ModelCutoff] = {}
     for model_id, v in (data.get("models") or {}).items():
-        cutoff_end = _as_date(v["cutoff_end"])
-        if cutoff_end is None:
-            raise CutoffGuardError(f"{model_id}: cutoff_end missing")
+        cutoff_end = _pure_date(v.get("cutoff_end"), f"{model_id}.cutoff_end")
+        margin = v.get("margin_days")
+        if type(margin) is not int or margin <= 0:
+            raise CutoffGuardError(f"{model_id}.margin_days: expected int > 0, got {margin!r}")
+        source = v.get("source")
+        if not isinstance(source, str) or not source.startswith("http"):
+            raise CutoffGuardError(f"{model_id}.source: expected an http(s) URL, got {source!r}")
         out[model_id] = ModelCutoff(
             model_id,
             cutoff_end,
-            int(v["margin_days"]),
-            source=v.get("source") or None,
-            verified_on=_as_date(v.get("verified_on")),
+            margin,
+            source=source,
+            verified_on=_as_date(v.get("verified_on"), f"{model_id}.verified_on"),
         )
     return out
 
@@ -78,11 +97,15 @@ def load_registrations(path: str | Path) -> list[Registration]:
     data: dict[str, Any] = yaml.safe_load(Path(path).read_text()) or {}
     out: list[Registration] = []
     for r in data.get("registrations") or []:
-        committed = _as_date(r.get("committed_on"))
-        if not (r.get("id") and r.get("model_id") and r.get("prompt_hash") and committed):
+        if not (r.get("id") and r.get("model_id") and r.get("prompt_hash")):
             raise CutoffGuardError(f"incomplete registration: {r!r}")
         out.append(
-            Registration(str(r["id"]), str(r["model_id"]), str(r["prompt_hash"]), committed)
+            Registration(
+                str(r["id"]),
+                str(r["model_id"]),
+                str(r["prompt_hash"]),
+                _as_date(r.get("committed_on"), "committed_on"),
+            )
         )
     return out
 
@@ -111,13 +134,16 @@ def is_confirmatory(
     score_ts: datetime | None,
     prompt_hash: str | None,
     registrations: Sequence[Registration],
+    registration_commit_ts: Mapping[str, datetime],
     external_retrieval: bool | None,
 ) -> bool:
     """True only if the row satisfies every confirmatory condition. Fails closed.
 
     Conditions: pinned model; registry entry with source and verified_on; document and event
     after the cutoff safe start; doc_available_ts <= score_ts < event_release_ts; a registration
-    for this exact (model_id, prompt_hash) committed on a UTC date strictly before the event;
+    for this exact (model_id, prompt_hash) whose git-verified commit timestamp
+    (``registration_commit_ts[id]``, tz-aware) is strictly before ``event_release_ts``; the YAML
+    ``committed_on`` is ignored, and a registration without a verified commit ts never counts;
     and external_retrieval explicitly False (None or any other value fails).
     """
     if model_id != pinned_model_id:
@@ -133,9 +159,10 @@ def is_confirmatory(
     start = entry.safe_start
     if not (doc > start and event > start and doc <= score < event):
         return False
-    return any(
-        r.model_id == model_id
-        and r.prompt_hash == prompt_hash
-        and r.committed_on < event.date()
-        for r in registrations
-    )
+    for r in registrations:
+        if r.model_id != model_id or r.prompt_hash != prompt_hash:
+            continue
+        committed = _utc(registration_commit_ts.get(r.id))
+        if committed is not None and committed < event:
+            return True
+    return False
