@@ -25,4 +25,4 @@ ruff check . && pytest -m "not spark and not databricks and not live"
 
 Findings so far: [Fed speech count](docs/findings/fed-speech-count.md).
 
-Review fixes (Sol rounds 1-2): `cutoff_guard` trusts git commit timestamps for pre-registrations (not YAML dates) and validates the registry strictly; `asof_latest` has no tie-break and rejects ties and null keys; Fed speech availability is an uncorroborated assumption (`assumed_scheduled_day_plus_1`) excluded from confirmatory work; CI blocks more data files and runs on full history; the no-pandas check is AST-based; the P2b label rule is bounded to 3 days.
+Review fixes (Sol rounds 1-3): `cutoff_guard` trusts git provenance bound to the exact registration content on the first-parent line of a verified ref (not YAML dates) and validates the registry strictly; `asof_latest` has no tie-break and rejects ties and null keys; Fed speech availability is an uncorroborated assumption excluded from confirmatory work; CI blocks more data files (jsonl, orc, avro, delta, ...) and runs on full history; the no-pandas check is AST-based; the P2b label rule is bounded to 3 days.

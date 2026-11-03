@@ -103,7 +103,7 @@ Mechanics: ForecastEx does not allow selling, so "short" means buying the NO con
 **`cutoff_guard`:**
 1. Registry `config/llm_cutoffs.yaml`: `model_id`, `cutoff_end`, source URL, `verified_on`. Unknown cutoff, timestamps or model revision fails closed.
 2. `safe_start = cutoff_end + 31 days` (2026-07-31 for the Claude models; use a 90-day margin for Llama, i.e. 2024-03-30).
-3. A row is **confirmatory** only if: `doc.available_ts > safe_start`, `event.release_ts > safe_start`, `score_ts < event.release_ts`, `model_id` equals the pinned model, `prompt_hash` is in the pre-registration file committed before the event, and external retrieval was disabled.
+3. A row is **confirmatory** only if: `doc.available_ts > safe_start`, `event.release_ts > safe_start`, `score_ts < event.release_ts`, `model_id` equals the pinned model, the exact registration (`id`, `model_id`, `prompt_hash`, `primary_hypothesis`) has been continuously present on the trusted first-parent line of git history since a commit whose committer INSTANT is strictly before `event.release_ts` (instant comparison, not date; YAML `committed_on` is ignored; edits or delete/re-add restart the clock; production callers get the mapping only from `verified_registration_map`), and external retrieval was disabled (explicitly `False`).
 4. All other rows are written with `confirmatory=false`.
 5. A material model or prompt change starts a new confirmatory series; never mix models within one test.
 

@@ -17,9 +17,12 @@ def test_ci_data_file_regex():
     for bad in (
         "data/prices.csv.gz", "data/prices.tsv", "DATA/A.CSV", "a.tsv.gz", "a.json.gz",
         "a.parquet.gz", "a.zip", "a.tar", "a.gz", "a.PKL", "a.duckdb",
+        "data/observations.jsonl", "data/o.ndjson", "data/x.ORC", "a.jsonl.gz", "a.ndjson.gz",
+        "a.avro", "a.h5", "a.hdf5", "a.npy", "a.NPZ", "a.dta", "a.sav", "a.feather",
+        "warehouse/delta/part-0.snappy", "warehouse/t/_delta_log/00000.json", "_delta_log/0.json",
     ):  # fmt: skip
         assert blocked(bad), bad
-    for ok in ("tests/fixtures/a.csv", "src/a.py", "docs/a.html", "README.md"):
+    for ok in ("tests/fixtures/a.csv", "tests/fixtures/o.jsonl", "tests/fixtures/delta/x", "src/pm_macro/deltas.py", "src/a.py", "docs/a.html", "README.md"):
         assert not blocked(ok), ok
 
 
