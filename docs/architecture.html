@@ -7,8 +7,9 @@ h1{font-size:22px;font-weight:600;margin:0 0 4px}.sub{color:var(--muted);font-si
 svg{width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px}
 text{font-family:Geist,system-ui,sans-serif;fill:var(--text)}.m{font-family:"JetBrains Mono",ui-monospace,monospace}
 .t{font-size:12px;font-weight:600}.d{font-size:10px;fill:var(--sec)}.h{font-size:11px;letter-spacing:.12em;fill:var(--gold);font-weight:600}.mu{fill:var(--muted);font-size:10px}
-.box{fill:var(--elev);stroke:var(--border);stroke-width:1}.reg{fill:none;stroke:var(--border);stroke-dasharray:4 4}
-.gold{fill:#d6b65a24;stroke:var(--gold)}.ln{stroke:var(--muted);stroke-width:1.2;fill:none}.lg{stroke:var(--gold);stroke-width:1.4;fill:none}
+.box{fill:rgba(38,42,49,.9);stroke:#6b727d;stroke-width:1.4}
+.t-src{fill:rgba(38,42,49,.9);stroke:#b8bdc5}.t-ing{fill:rgba(31,66,58,.75);stroke:#7fbfae}.t-bz{fill:rgba(88,50,14,.7);stroke:#e09a4a}.t-sv{fill:rgba(26,44,72,.75);stroke:#6f8fb8}.t-gd{fill:rgba(84,66,20,.75);stroke:#d6b65a}.t-out{fill:rgba(38,42,49,.9);stroke:#b8bdc5}.reg{fill:none;stroke:var(--border);stroke-dasharray:4 4}
+.gold{fill:rgba(84,66,20,.6);stroke:var(--gold);stroke-width:1.4}.ln{stroke:var(--muted);stroke-width:1.2;fill:none}.lg{stroke:var(--gold);stroke-width:1.4;fill:none}
 .leg{font-size:11px;color:var(--sec);margin-top:12px;display:flex;gap:20px;flex-wrap:wrap}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
 </style></head><body><div class="wrap">
 <h1>pm-macro-lab — architecture</h1>
@@ -25,38 +26,38 @@ text{font-family:Geist,system-ui,sans-serif;fill:var(--text)}.m{font-family:"Jet
 <text x="1060" y="28" class="h">OUTPUTS</text>
 
 <!-- sources -->
-<rect class="box" x="20" y="40" width="190" height="58" rx="6"/><text x="32" y="60" class="t">ForecastEx CSVs</text><text x="32" y="76" class="d m">prices · pairs · summary · 2024-08+</text><text x="32" y="90" class="mu">indicative, no order books</text>
-<rect class="box" x="20" y="108" width="190" height="58" rx="6"/><text x="32" y="128" class="t">FRED / ALFRED</text><text x="32" y="144" class="d m">vintages · CPI · PAYEMS · rates</text><text x="32" y="158" class="mu">first prints from 1994</text>
-<rect class="box" x="20" y="176" width="190" height="58" rx="6"/><text x="32" y="196" class="t">Federal Reserve</text><text x="32" y="212" class="d m">statements · minutes · speeches · SEP</text><text x="32" y="226" class="mu">first-seen available_ts</text>
-<rect class="box" x="20" y="244" width="190" height="58" rx="6"/><text x="32" y="264" class="t">Nowcasts · BLS calendar</text><text x="32" y="280" class="d m">Cleveland Fed · release dates</text><text x="32" y="294" class="mu">snapshot daily (no history)</text>
-<rect class="box" x="20" y="312" width="190" height="58" rx="6"/><text x="32" y="332" class="t">Cross-asset prices</text><text x="32" y="348" class="d m">IBKR_workbench · Polygon · FRED</text><text x="32" y="362" class="mu">hedge betas (SPY TLT TIP UUP VIX)</text>
+<rect class="box t-src" x="20" y="40" width="190" height="58" rx="6"/><text x="32" y="60" class="t">ForecastEx CSVs</text><text x="32" y="76" class="d m">prices · pairs · summary · 2024-08+</text><text x="32" y="90" class="mu">indicative, no order books</text>
+<rect class="box t-src" x="20" y="108" width="190" height="58" rx="6"/><text x="32" y="128" class="t">FRED / ALFRED</text><text x="32" y="144" class="d m">vintages · CPI · PAYEMS · rates</text><text x="32" y="158" class="mu">first prints from 1994</text>
+<rect class="box t-src" x="20" y="176" width="190" height="58" rx="6"/><text x="32" y="196" class="t">Federal Reserve</text><text x="32" y="212" class="d m">statements · minutes · speeches · SEP</text><text x="32" y="226" class="mu">first-seen available_ts</text>
+<rect class="box t-src" x="20" y="244" width="190" height="58" rx="6"/><text x="32" y="264" class="t">Nowcasts · BLS calendar</text><text x="32" y="280" class="d m">Cleveland Fed · release dates</text><text x="32" y="294" class="mu">snapshot daily (no history)</text>
+<rect class="box t-src" x="20" y="312" width="190" height="58" rx="6"/><text x="32" y="332" class="t">Cross-asset prices</text><text x="32" y="348" class="d m">IBKR_workbench · Polygon · FRED</text><text x="32" y="362" class="mu">hedge betas (SPY TLT TIP UUP VIX)</text>
 
 <!-- owner device -->
 <rect class="reg" x="20" y="400" width="190" height="130" rx="8"/><text x="30" y="418" class="mu">OWNER'S DEVICE</text>
 <rect class="gold" x="30" y="428" width="170" height="90" rx="6"/><text x="42" y="448" class="t">IB Gateway + ib_async</text><text x="42" y="464" class="d m">YES + NO legs · bid/ask/size</text><text x="42" y="478" class="d m">5-min rotation, ≤100 lines</text><text x="42" y="494" class="mu">daily restart · weekly 2FA</text><text x="42" y="508" class="mu">paper account only</text>
 
 <!-- ingest -->
-<rect class="box" x="250" y="40" width="200" height="62" rx="6"/><text x="262" y="60" class="t">Databricks Jobs</text><text x="262" y="76" class="d m">daily CSV mirror · retry · hash</text><text x="262" y="90" class="mu">serverless, no device needed</text>
-<rect class="box" x="250" y="112" width="200" height="62" rx="6"/><text x="262" y="132" class="t">FRED/ALFRED client</text><text x="262" y="148" class="d m">key in secret scope</text><text x="262" y="162" class="mu">MCP = exploration only</text>
-<rect class="box" x="250" y="184" width="200" height="62" rx="6"/><text x="262" y="204" class="t">First-seen crawlers</text><text x="262" y="220" class="d m">Fed speeches · SEP · nowcast</text><text x="262" y="234" class="mu">cannot be backfilled — start now</text>
+<rect class="box t-ing" x="250" y="40" width="200" height="62" rx="6"/><text x="262" y="60" class="t">Databricks Jobs</text><text x="262" y="76" class="d m">daily CSV mirror · retry · hash</text><text x="262" y="90" class="mu">serverless, no device needed</text>
+<rect class="box t-ing" x="250" y="112" width="200" height="62" rx="6"/><text x="262" y="132" class="t">FRED/ALFRED client</text><text x="262" y="148" class="d m">key in secret scope</text><text x="262" y="162" class="mu">MCP = exploration only</text>
+<rect class="box t-ing" x="250" y="184" width="200" height="62" rx="6"/><text x="262" y="204" class="t">First-seen crawlers</text><text x="262" y="220" class="d m">Fed speeches · SEP · nowcast</text><text x="262" y="234" class="mu">cannot be backfilled — start now</text>
 <rect class="gold" x="250" y="428" width="200" height="90" rx="6"/><text x="262" y="448" class="t">Quote capture</text><text x="262" y="464" class="d m">local Parquet + capture_ts</text><text x="262" y="478" class="d m">heartbeat + known-gap log</text><text x="262" y="494" class="mu">hourly upload → UC Volume</text>
 
 <!-- databricks region -->
 <rect class="reg" x="480" y="40" width="740" height="500" rx="10"/><text x="492" y="56" class="mu">DATABRICKS · NEW WORKSPACE · CATALOG pm_macro · UNITY CATALOG</text>
 
 <!-- bronze -->
-<rect class="box" x="496" y="72" width="170" height="440" rx="6"/>
+<rect class="box t-bz" x="496" y="72" width="170" height="440" rx="6"/>
 <text x="508" y="94" class="t">bronze</text><text x="508" y="110" class="mu">append-only · idempotent</text>
 <text x="508" y="136" class="d m">forecastex_*_raw</text><text x="508" y="156" class="d m">ibkr_quotes_raw</text><text x="508" y="176" class="d m">ibkr_contracts_raw</text><text x="508" y="196" class="d m">alfred_vintages_raw</text><text x="508" y="216" class="d m">release_calendar_raw</text><text x="508" y="236" class="d m">fed_docs_raw</text><text x="508" y="256" class="d m">fed_sep_html_raw</text><text x="508" y="276" class="d m">nowcast_raw</text><text x="508" y="296" class="d m">gdelt_raw</text>
 <text x="508" y="480" class="mu">data_source · ingest_ts</text><text x="508" y="494" class="mu">payload_hash · schema_ver</text>
 
 <!-- silver -->
-<rect class="box" x="686" y="72" width="170" height="440" rx="6"/>
+<rect class="box t-sv" x="686" y="72" width="170" height="440" rx="6"/>
 <text x="698" y="94" class="t">silver</text><text x="698" y="110" class="mu">typed · PIT · SCD2</text>
 <text x="698" y="136" class="d m">contracts (SCD2)</text><text x="698" y="156" class="d m">quotes (YES/NO)</text><text x="698" y="176" class="d m">trades</text><text x="698" y="196" class="d m">vintages · first_prints</text><text x="698" y="216" class="d m">macro_events</text><text x="698" y="236" class="d m">fomc_decisions</text><text x="698" y="256" class="d m">synthetic_events</text><text x="698" y="276" class="d m">text_docs · text_scores</text><text x="698" y="296" class="d m">sep_releases · sep_dots</text>
 
 <!-- gold -->
-<rect class="box" x="876" y="72" width="170" height="440" rx="6"/>
+<rect class="box t-gd" x="876" y="72" width="170" height="440" rx="6"/>
 <text x="888" y="94" class="t">gold</text><text x="888" y="110" class="mu">features keyed by as_of_ts</text>
 <text x="888" y="136" class="d m">features_pit</text><text x="888" y="156" class="d m">labels (separate)</text><text x="888" y="176" class="d m">synthetic_binaries</text><text x="888" y="196" class="d m">proxy_bridge</text><text x="888" y="216" class="d m">implied_dist</text><text x="888" y="236" class="d m">ladder_arb_flags</text><text x="888" y="256" class="d m">sep_features_pit</text><text x="888" y="276" class="d m">preds · signal_eval</text><text x="888" y="296" class="d m">paper_orders / pnl</text>
 
@@ -65,11 +66,11 @@ text{font-family:Geist,system-ui,sans-serif;fill:var(--text)}.m{font-family:"Jet
 <rect class="gold" x="696" y="418" width="150" height="76" rx="6"/><text x="708" y="438" class="t">cutoff_guard</text><text x="708" y="454" class="d m">fails closed</text><text x="708" y="468" class="d m">preregistered prompt hash</text><text x="708" y="484" class="mu">confirmatory flag</text>
 
 <!-- outputs -->
-<rect class="box" x="1066" y="72" width="140" height="62" rx="6"/><text x="1078" y="92" class="t">Calibration (H1)</text><text x="1078" y="108" class="d m">market vs baseline</text><text x="1078" y="122" class="mu">FOMC first</text>
-<rect class="box" x="1066" y="144" width="140" height="62" rx="6"/><text x="1078" y="164" class="t">Speech repricing</text><text x="1078" y="180" class="d m">Fed text → FF ladder</text><text x="1078" y="194" class="mu">H2 · Track E → C</text>
-<rect class="box" x="1066" y="216" width="140" height="62" rx="6"/><text x="1078" y="236" class="t">Ladder / RV scans</text><text x="1078" y="252" class="d m">monotonicity · Fed path</text><text x="1078" y="266" class="mu">analyses #1–#9</text>
-<rect class="box" x="1066" y="288" width="140" height="62" rx="6"/><text x="1078" y="308" class="t">Historical lab (H4)</text><text x="1078" y="324" class="d m">1994–2024 binaries</text><text x="1078" y="338" class="mu">R5 sealed holdout</text>
-<rect class="box" x="1066" y="360" width="140" height="62" rx="6"/><text x="1078" y="380" class="t">Hedge study</text><text x="1078" y="396" class="d m">event β → contracts</text><text x="1078" y="410" class="mu">drop if R² &lt; 5%</text>
+<rect class="box t-out" x="1066" y="72" width="140" height="62" rx="6"/><text x="1078" y="92" class="t">Calibration (H1)</text><text x="1078" y="108" class="d m">market vs baseline</text><text x="1078" y="122" class="mu">FOMC first</text>
+<rect class="box t-out" x="1066" y="144" width="140" height="62" rx="6"/><text x="1078" y="164" class="t">Speech repricing</text><text x="1078" y="180" class="d m">Fed text → FF ladder</text><text x="1078" y="194" class="mu">H2 · Track E → C</text>
+<rect class="box t-out" x="1066" y="216" width="140" height="62" rx="6"/><text x="1078" y="236" class="t">Ladder / RV scans</text><text x="1078" y="252" class="d m">monotonicity · Fed path</text><text x="1078" y="266" class="mu">analyses #1–#9</text>
+<rect class="box t-out" x="1066" y="288" width="140" height="62" rx="6"/><text x="1078" y="308" class="t">Historical lab (H4)</text><text x="1078" y="324" class="d m">1994–2024 binaries</text><text x="1078" y="338" class="mu">R5 sealed holdout</text>
+<rect class="box t-out" x="1066" y="360" width="140" height="62" rx="6"/><text x="1078" y="380" class="t">Hedge study</text><text x="1078" y="396" class="d m">event β → contracts</text><text x="1078" y="410" class="mu">drop if R² &lt; 5%</text>
 <rect class="gold" x="1066" y="432" width="140" height="80" rx="6"/><text x="1078" y="452" class="t">Paper trading</text><text x="1078" y="468" class="d m">¼ Kelly · captured books</text><text x="1078" y="482" class="d m">fees + 3.38% coupon</text><text x="1078" y="498" class="mu">no live capital</text>
 
 <!-- arrows -->
