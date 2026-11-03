@@ -88,3 +88,17 @@ def test_null_key_rejected_in_facts_and_spine():
     good_facts = pl.DataFrame({"k": ["a"], "available_ts": [T(10)], "v": [1.0]})
     with pytest.raises(ValueError, match="null"):
         asof_latest(bad_spine, good_facts, key="k", value_cols=["v"])
+
+
+def test_spine_with_prior_available_ts_rejected():
+    spine = pl.DataFrame({"k": ["a"], "as_of_ts": [T(12)], "available_ts": [T(1)]})
+    facts = pl.DataFrame({"k": ["a"], "available_ts": [T(10)], "v": [1.0]})
+    with pytest.raises(ValueError, match="available_ts"):
+        asof_latest(spine, facts, key="k", value_cols=["v"])
+
+
+def test_spine_with_existing_value_column_rejected():
+    spine = pl.DataFrame({"k": ["a"], "as_of_ts": [T(12)], "v": [42.0]})
+    facts = pl.DataFrame({"k": ["a"], "available_ts": [T(10)], "v": [1.0]})
+    with pytest.raises(ValueError, match="'v'"):
+        asof_latest(spine, facts, key="k", value_cols=["v"])

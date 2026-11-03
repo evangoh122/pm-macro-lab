@@ -22,10 +22,17 @@ def asof_latest(
     earlier as_of_ts. Facts with available_ts later than as_of_ts are never visible; a fact with
     available_ts == as_of_ts is visible (inclusive boundary). Output rows keep the spine's order.
 
-    Raises ``ValueError`` on: null ``key`` in spine or facts, null ``as_of_ts`` in spine, null
+    Raises ``ValueError`` on: spine columns named ``available_ts`` or any of ``value_cols``
+    (an earlier join would silently shadow the new values), null ``key`` in spine or facts, null ``as_of_ts`` in spine, null
     ``available_ts`` in facts, and any two facts sharing the same (key, available_ts). There is
     no tie-break: ambiguity is always an error.
     """
+    overlap = sorted(set(spine.columns) & {"available_ts", *value_cols})
+    if overlap:
+        raise ValueError(
+            f"spine already has columns {overlap} that the join would add or collide with; "
+            "rename or drop them first"
+        )
     if spine[key].null_count() or facts[key].null_count():
         raise ValueError(f"null values in key column {key!r}")
     if spine["as_of_ts"].null_count():
