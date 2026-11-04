@@ -1,0 +1,18 @@
+# Registry for cutoff_guard. Unknown model or missing fields fail closed.
+# cutoff_end is the last day of the documented training-cutoff month.
+models:
+  claude-opus-5-5:
+    cutoff_end: 2026-06-30
+    margin_days: 31
+    source: https://platform.claude.com/docs/en/about-claude/models/overview
+    verified_on: 2026-10-30
+  claude-sonnet-5-5:
+    cutoff_end: 2026-06-30
+    margin_days: 31
+    source: https://platform.claude.com/docs/en/about-claude/models/overview
+    verified_on: 2026-10-30
+  meta-llama/Llama-3.1-70B-Instruct:
+    cutoff_end: 2023-12-31
+    margin_days: 90
+    source: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
+    verified_on: null   # UNVERIFIED: confirm on the model card in P0
