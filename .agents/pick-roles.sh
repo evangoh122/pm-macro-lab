@@ -16,11 +16,13 @@
 #   PEAK_START_UTC  first peak hour, 0-23 (inclusive)
 #   PEAK_END_UTC    first non-peak hour, 0-23 (exclusive)
 # The window is half-open [start, end) and may wrap midnight (e.g. 22 -> 6).
-# If either variable is unset, non-numeric or out of range the script exits 2
-# without printing a pair (fail closed: no guessing a window).
+# If either variable is unset, set-but-empty, non-numeric or out of range the
+# script exits 2 without printing a pair (fail closed: no guessing a window).
 #
 # Test hook:
-#   NOW_UTC_HOUR  override the current UTC hour (0-23) instead of reading clock
+#   NOW_UTC_HOUR  override the current UTC hour (0-23) instead of reading clock.
+#                 If it is set at all it must be a valid hour: an explicitly
+#                 empty value is an error, not "use the real clock".
 
 set -uo pipefail
 
@@ -75,17 +77,21 @@ case "${1:-}" in
   *) usage; exit 2 ;;
 esac
 
-if [ -z "${PEAK_START_UTC:-}" ] || [ -z "${PEAK_END_UTC:-}" ]; then
+# Unset means "owner has not supplied the window" -> fail closed.
+if [ -z "${PEAK_START_UTC+x}" ] || [ -z "${PEAK_END_UTC+x}" ]; then
   fail "DeepSeek peak window unknown: set PEAK_START_UTC and PEAK_END_UTC (hours 0-23).
        The owner must supply the verified DeepSeek peak window; this script does not guess."
 fi
 
+# Set-but-empty is a malformed window, not a missing one: still exit 2.
 is_hour "$PEAK_START_UTC" || fail "PEAK_START_UTC='$PEAK_START_UTC' is not an hour 0-23"
 is_hour "$PEAK_END_UTC" || fail "PEAK_END_UTC='$PEAK_END_UTC' is not an hour 0-23"
 [ "$PEAK_START_UTC" -ne "$PEAK_END_UTC" ] ||
   fail "PEAK_START_UTC and PEAK_END_UTC are both $PEAK_START_UTC: empty/ambiguous window"
 
-if [ -n "${NOW_UTC_HOUR:-}" ]; then
+# Set at all (even empty) means the caller is supplying the hour: validate it.
+# Only a truly unset NOW_UTC_HOUR falls back to the wall clock.
+if [ -n "${NOW_UTC_HOUR+x}" ]; then
   is_hour "$NOW_UTC_HOUR" || fail "NOW_UTC_HOUR='$NOW_UTC_HOUR' is not an hour 0-23"
   hour="$NOW_UTC_HOUR"
 else
