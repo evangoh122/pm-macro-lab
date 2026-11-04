@@ -35,4 +35,11 @@ The `.agents/` directory implements a multi-agent build and validation workflow 
   (Opus 5.5 fallback only if Sol hits token/usage limits; substitution recorded in PR)
 - **Claude**: coordinator, dispatcher orchestration
 
+Coder/validator roles follow the DeepSeek UTC peak window: MiMo codes while
+DeepSeek is in peak, otherwise DeepSeek codes and MiMo validates. Get the pair
+from `.agents/pick-roles.sh` (pass `--keep <coder> <validator>` on fix rounds).
+The peak window is supplied by the owner via `PEAK_START_UTC` / `PEAK_END_UTC`
+(UTC hours, may wrap midnight); the script exits 2 rather than guess when they
+are unset.
+
 Dispatch with `.agents/dispatch.sh <agent> <request-file> [timeout-seconds]` (pass 7200 for long-running work). Agents read the protocol and their role, then execute the request and write a verdict file. Logs are written to `.agents/.agentlogs/` (gitignored).
